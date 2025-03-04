@@ -239,6 +239,7 @@ function mindcraftStart {
 	Write-Host "Removing Andy memory folder $VARCD\mindcraft\mindcraft\bots\Andy "
  	Remove-Item -Path "$VARCD\mindcraft\mindcraft\bots\Andy" -Force -ErrorAction SilentlyContinue  -Confirm:$false -Recurse |Out-Null
 	Write-Host "Starting Mindcraft"
+ 	Start-Sleep -Seconds 10
 	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory ".\" -ArgumentList " main.js "
 }
 
