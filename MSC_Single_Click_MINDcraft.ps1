@@ -157,7 +157,7 @@ Start-Process -FilePath "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Oll
 Start-Sleep -Seconds 10
 Write-Host "Installing base models"
 Start-Process -FilePath "$VARCD\Ollama\Ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " pull nomic-embed-text " -wait -NoNewWindow
-Start-Process -FilePath "$VARCD\Ollama\Ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " pull hf.co/Sweaterdog/Andy-3.6:Q4_K_M " -wait -NoNewWindow
+Start-Process -FilePath "$VARCD\Ollama\Ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " pull hf.co/Sweaterdog/Andy-3.6:Q5_K_M " -wait -NoNewWindow
 
 Remove-Item -Path "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -ErrorAction SilentlyContinue |Out-Null
 
