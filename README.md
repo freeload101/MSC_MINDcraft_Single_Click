@@ -1,6 +1,6 @@
 # MSC MINDcraft Single Click 
 One-click PowerShell script for setting up a portable MINDcraft installation. 
-## This script is designed for users that are hacing issues getting MINDcraft to run so you just have to edit the profile with the correct API etc.
+## This script is designed for users that are having issues getting MINDcraft to run so you just have to edit the profile with the correct API etc.
 
  The script automatically:
 - Creates a self-contained MINDcraft environment to get you going quicky
