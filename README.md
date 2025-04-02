@@ -14,3 +14,6 @@ https://youtu.be/PAEwbGJVVWk
 
 ## Public Ollama / If you do NOT have good GPU with  with dedicated VRAM
 https://youtu.be/XZD90V16C8c
+
+
+![Andy](https://github.com/user-attachments/assets/9747588a-ea41-4637-a4db-bfd3490c79ce)
