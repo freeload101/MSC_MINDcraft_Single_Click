@@ -6,11 +6,15 @@ param(
 
 # function for messages
 #$ErrorActionPreference="Continue"
-$VerNum = 'MSC 1.0b'
+$VerNum = 'MSC 1.1b'
 $host.ui.RawUI.WindowTitle = $VerNum 
  
 # set current directory
-Set-Location ($VARCD = (Get-Location)); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node"
+Set-Location ($VARCD = (Get-Location)); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
+
+
+
+
 
 # Setup Form
 Add-Type -assembly System.Windows.Forms
@@ -21,10 +25,68 @@ $main_form.Text = "$VerNum"
 $hShift = 0
 $vShift = 0
 
+
+function Write-Message  {
+    <#
+    .SYNOPSIS
+        Prints	 colored messages depending on type
+    .PARAMETER TYPE
+        Type of error message to be prepended to the message and sets the color
+    .PARAMETER MESSAGE
+        Message to be output
+    #>
+    [CmdletBinding()]
+    param (
+        [string]
+        $Type,
+        
+        [string]
+        $Message
+        )
+
+if  (($TYPE) -eq  ("INFO")) { $Tag = "INFO"  ; $Color = "Green"}
+if  (($TYPE) -eq  ("WARNING")) { $Tag = "WARNING"  ; $Color = "Yellow"}
+if  (($TYPE) -eq  ("ERROR")) { $Tag = "ERROR"  ; $Color = "Red"}
+Write-Host  (Get-Date -UFormat "%m/%d:%T")$($Tag)$($Message) -ForegroundColor $Color  
+#echo "$Message"
+}
+
+
 ### MAIN ###
 
 ################################# FUNCTIONS
- 
+
+
+
+############# CHECK PYTHON
+Function CheckPython {
+   if (-not(Test-Path -Path "$VARCD\python" )) {
+            Write-Message  -Message  "Downloading Python nuget package" -Type "INFO"
+            downloadFile "https://www.nuget.org/api/v2/package/python" "$VARCD\python.zip"
+            New-Item -Path "$VARCD\python" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
+            Write-Message  -Message  "Extracting Python nuget package" -Type "INFO"
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            Add-Type -AssemblyName System.IO.Compression
+            [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\python.zip", "$VARCD\python")
+			Write-Message  -Message  "Updating pip" -Type "INFO"
+			Start-Process -FilePath "$VARCD\python\tools\python.exe" -WorkingDirectory "$VARCD\python\tools" -ArgumentList " -m pip install --upgrade pip " -wait -NoNewWindow
+
+New-Item -ItemType Directory -Path "$VARCD\python\tools\Scripts" -ErrorAction SilentlyContinue |Out-Null
+# DO NOT INDENT THIS PART
+$PipBatch = @'
+python -m pip %*
+'@
+$PipBatch | Out-File -Encoding Ascii -FilePath "$VARCD\python\tools\Scripts\pip.bat" -ErrorAction SilentlyContinue |Out-Null
+# DO NOT INDENT THIS PART
+
+            }
+        else {
+            Write-Message  -Message  "$VARCD\python already exists" -Type "WARNING"
+            }
+			Write-Message  -Message  "CheckPython Complete" -Type "INFO"
+}
+
+
 ############# CheckNode
 Function CheckNode {
    if (-not(Test-Path -Path "$VARCD\node" )) {
@@ -67,8 +129,8 @@ function downloadFile($url, $targetFile)
     {
         $targetStream.Write($buffer, 0, $count)
         $count = $responseStream.Read($buffer,0,$buffer.length)
-        $downloadedBytes = $downloadedBytes + $count
     }
+        $downloadedBytes = $downloadedBytes + $count
     "Finished Download"
     $targetStream.Flush()
     $targetStream.Close()
@@ -81,7 +143,7 @@ Function CheckJava {
 Write-Host "Checking for Java"
    if (-not(Test-Path -Path "$VARCD\jdk" )) {
             Write-Host "Downloading Java"
-            downloadFile "https://download.oracle.com/java/23/latest/jdk-23_windows-x64_bin.zip" "$VARCD\jdk.zip"
+            downloadFile "https://download.java.net/java/GA/jdk24/1f9ff9062db4449d8ca828c504ffae90/36/GPL/openjdk-24_windows-x64_bin.zip" "$VARCD\jdk.zip"
             Write-Host "Extracting Java"
 			Add-Type -AssemblyName System.IO.Compression.FileSystem
             Add-Type -AssemblyName System.IO.Compression
@@ -138,22 +200,18 @@ Start-Process -FilePath "powershell" -WorkingDirectory "$VARCD\" -ArgumentList "
 function EXECheckOllama{
   if (-not(Test-Path -Path "$VARCD\Ollama" )) {
 	try {
-		Write-Message "Downloading Ollama" -Type "INFO"
-		New-Item -Path "$VARCD\Ollama\" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
-		downloadFile "https://ollama.com/download/OllamaSetup.exe" "$VARCD\Ollama\OllamaSetup.exe"
-		Write-Message "Installing Ollama to $VARCD\Ollama" -Type "INFO"
-		Start-Process -FilePath "$VARCD\Ollama\OllamaSetup.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " /SILENT /NORESTART /DIR=`"$VARCD\Ollama`" "  -NoNewWindow
+		Stop-process -name ollama -Force -ErrorAction SilentlyContinue |Out-Null
+		Stop-process -name "ollama app" -Force -ErrorAction SilentlyContinue |Out-Null
 		
-		Write-Message "Waiting for Ollama to start" -Type "INFO"
-		while(!(Get-Process "ollama app" -ErrorAction SilentlyContinue)){Start-Sleep -Seconds 5};Write-Message "Waiting for Ollama to start" -Type "INFO"
-
-		Write-Message "Installing base models" -Type "INFO"
-		Start-Process -FilePath "$VARCD\Ollama\Ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " pull nomic-embed-text " -wait -NoNewWindow
-		Start-Process -FilePath "$VARCD\Ollama\Ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " pull hf.co/Sweaterdog/Andy-3.6:Q4_K_M " -wait -NoNewWindow
+		Write-Host  "Downloading Latetst binary from github"
+		$downloadUri = ((Invoke-RestMethod -Method GET -Uri "https://api.github.com/repos/ollama/ollama/releases/latest").assets | Where-Object name -like ollama-windows-amd64.zip ).browser_download_url
+		downloadFile  $downloadUri "$VARCD\ollama-windows-amd64.zip"
+		Write-Host "Extracting ollama-windows-amd64.zip"
+		Add-Type -AssemblyName System.IO.Compression.FileSystem
+		Add-Type -AssemblyName System.IO.Compression
+		[System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\ollama-windows-amd64.zip", "$VARCD\Ollama\")
 		
-		Remove-Item -Path "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -ErrorAction SilentlyContinue |Out-Null
-		
-		Write-Message "Setting .ollama OLLAMA_MODELS System.Environment to $VARCD\Ollama\ and listen on 0.0.0.0" -Type "INFO"
+		Write-Host  "Setting .ollama OLLAMA_MODELS System.Environment to $VARCD\Ollama\ and listen on 0.0.0.0"
 		[System.Environment]::SetEnvironmentVariable("OLLAMA_MODELS", "$VARCD\Ollama\.ollama", [System.EnvironmentVariableTarget]::Machine)
 		[System.Environment]::SetEnvironmentVariable("OLLAMA_HOST", "0.0.0.0", [System.EnvironmentVariableTarget]::Machine)
 		[System.Environment]::SetEnvironmentVariable("OLLAMA_KEEP_ALIVE", "-1", [System.EnvironmentVariableTarget]::Machine)
@@ -164,29 +222,15 @@ function EXECheckOllama{
 				throw $_.Exception.Message
 		}
 		}
-	else {
 		
-		Stop-process -name ollama -Force -ErrorAction SilentlyContinue |Out-Null
-		Stop-process -name "ollama app" -Force -ErrorAction SilentlyContinue |Out-Null
-		
-		Write-Message "Downloading Latetst binary from github" -Type "INFO"
-		$downloadUri = ((Invoke-RestMethod -Method GET -Uri "https://api.github.com/repos/ollama/ollama/releases/latest").assets | Where-Object name -like ollama-windows-amd64.zip ).browser_download_url
-		downloadFile  $downloadUri "$VARCD\ollama-windows-amd64.zip"
-		Write-Message  -Message  "Extracting ollama-windows-amd64.zip" -Type "INFO"
-		Add-Type -AssemblyName System.IO.Compression.FileSystem
-		Add-Type -AssemblyName System.IO.Compression
-		[System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\ollama-windows-amd64.zip", "$VARCD\Ollama\")
-		
-		
-		Write-Message "Starting Ollama ...." -Type "INFO"
+		Write-Host  "Starting Ollama ...."
 		Stop-process -name ollama -Force -ErrorAction SilentlyContinue |Out-Null
 		Stop-process -name "ollama app" -Force -ErrorAction SilentlyContinue |Out-Null
 		Start-Sleep -Seconds 1
 		Start-Process -FilePath "$VARCD\Ollama\ollama app.exe" -WorkingDirectory "$VARCD\Ollama\"
-		while(!(Get-Process "ollama app" -ErrorAction SilentlyContinue)){Start-Sleep -Seconds 5};Write-Message "Waiting for Ollama to start" -Type "INFO"
+		while(!(Get-Process "ollama app" -ErrorAction SilentlyContinue)){Start-Sleep -Seconds 5};Write-Host  "Waiting for Ollama to start"
 		Start-Sleep -Seconds 2
   		Remove-Item -Path "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -ErrorAction SilentlyContinue |Out-Null
-		}
 }
 
 ############# OllamaGape
@@ -291,6 +335,7 @@ Function CheckGPU {
 Function mindcraft {
 Stop-process -name java -Force -ErrorAction SilentlyContinue |Out-Null
 Stop-process -name javaw -Force -ErrorAction SilentlyContinue |Out-Null
+CheckPython
 CheckGPU
 CheckGit
 CheckJava
@@ -308,7 +353,9 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
 	Start-Process -FilePath "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList " clone `"https://github.com/kolbytn/mindcraft.git`" " -wait -NoNewWindow
 
 	Write-Host "Installing mindcraft"
-	Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft\" -ArgumentList " install  " -wait -NoNewWindow
+	#npm install --save-dev node-canvas-webgl@latest --ignore-scripts
+	# Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft\" -ArgumentList " install  " -wait -NoNewWindow
+	Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft\" -ArgumentList " install --save-dev node-canvas-webgl@latest --ignore-scripts  " -wait -NoNewWindow
 
 	Write-Host "Settings.js: show_bot_views to true bot viewer server prismarine-viewer on http://localhost:3000"
 	(Get-Content "$VARCD\mindcraft\mindcraft\settings.js").Replace("`"show_bot_views`": false", "`"show_bot_views`": true") | Set-Content "$VARCD\mindcraft\mindcraft\settings.js"
@@ -343,7 +390,7 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
 		OllamaGapeFind
 		Write-Host "Andy.json: Updating Global:OllamaValidIP: $Global:OllamaValidIP  and  OllamaValidModel: $Global:OllamaValidModel  "
 		(Get-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json").Replace("localhost", "$Global:OllamaValidIP") | Set-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json"
-		(Get-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json").Replace("`"model`": `"hf.co/Sweaterdog/Andy-3.6:Q4_K_M`",", "`"model`": `"$Global:OllamaValidModel`",") | Set-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json"
+		(Get-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json").Replace("`"model`": `"sweaterdog/andy-4:q8_0`",", "`"model`": `"$Global:OllamaValidModel`",") | Set-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json"
 		(Get-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json").Replace("`"model`": `"nomic-embed-text`"", "`"model`": `"$Global:OllamaValidModel`"") | Set-Content "$VARCD\mindcraft\mindcraft\profiles\Andy.json"
 	}
 
@@ -369,7 +416,7 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\MinecraftServer" )) {
 	Set-Location -Path "$VARCD\mindcraft\MinecraftServer"
 	
 	Write-Host "Downloading MinecraftServer"
-	downloadFile "https://piston-data.mojang.com/v1/objects/8dd1a28015f51b1803213892b50b7b4fc76e594d/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar"
+	downloadFile "https://piston-data.mojang.com/v1/objects/59353fb40c36d304f2035d51e7d6e6baa98dc05c/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar"
 	# Create and configure server.properties
 
 $properties = @"
@@ -421,7 +468,7 @@ while ($true) {
 ############# CMDPrompt
 $Button = New-Object System.Windows.Forms.Button
 $Button.AutoSize = $true
-$Button.Text = "Command Prompt Java/Git/Node"
+$Button.Text = "Command Prompt Java/Git/Node/Python"
 $Button.Location = New-Object System.Drawing.Point(($hShift),($vShift+0))
 $Button.Add_Click({CMDPrompt})
 $main_form.Controls.Add($Button)
