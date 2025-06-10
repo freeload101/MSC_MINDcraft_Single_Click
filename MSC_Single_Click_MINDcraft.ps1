@@ -545,7 +545,6 @@ $Button.Location = New-Object System.Drawing.Point(($hShift+0),($vShift+0))
 $Button.Add_Click({UpdateJAMBO})
 $main_form.Controls.Add($Button)
 $vShift = $vShift + 30 
-MinecraftServer
 
 ############# SHOW FORM
 $main_form.ShowDialog()
