@@ -379,12 +379,13 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
 	
 	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
 	New-Item -Path "$VARCD\mindcraft" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
-	New-Item -Path "$VARCD\mindcraft\mindcraft\" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
+	
+	Write-Message  "Running git clone https://github.com/mindcraft-ce/mindcraft-ce.git "  -Type "INFO"
+	Start-Process -FilePath "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList " clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`" " -wait -NoNewWindow
+	Rename-Item -Path "$VARCD\mindcraft\mindcraft-ce" -NewName "$VARCD\mindcraft\mindcraft" 
 	Set-Location -Path "$VARCD\mindcraft\mindcraft\" -ErrorAction SilentlyContinue |Out-Null
-		
-	Write-Message  "Running git clone https://github.com/Sweaterdog/mindcraft.git "  -Type "INFO"
-	Start-Process -FilePath "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList " clone `"https://github.com/Sweaterdog/mindcraft.git`" " -wait -NoNewWindow
-
+	
+	
 	Write-Message  "Installing mindcraft. This may take a while..."  -Type "INFO"
 	Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft\" -ArgumentList " install --progress=true --loglevel=info " -NoNewWindow   -RedirectStandardOutput RedirectStandardOutput.txt -RedirectStandardError RedirectStandardError.txt
 	Start-Sleep -Seconds 5
@@ -413,9 +414,7 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
 	Write-Message  ".\src\server\mind_server.js: Replace the Mindcraft server port with 8082 "  -Type "INFO"
 	(Get-Content "$VARCD\mindcraft\mindcraft\src\server\mind_server.js").Replace("8080", "8082") | Set-Content "$VARCD\mindcraft\mindcraft\src\server\mind_server.js"
  
- 	# Think the fixed this ?? no ? Write-Message  "Installing prismarine-viewer@1.28.0 to fix broken repo"  -Type "INFO"
-	#Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory ".\" -ArgumentList " install prismarine-viewer@1.28.0 " -wait -NoNewWindow
-
+	#################### PROFILE  _default.json
 	Write-Message   ".\profiles\defaults\_default.json: Hunting to false" -Type "INFO"
 	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"hunting".*', '"hunting": false,' | sc  ".\profiles\defaults\_default.json"
 	
@@ -428,8 +427,23 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
 	Write-Message   ".\profiles\defaults\_default.json: elbow_room to true" -Type "INFO"
 	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"elbow_room".*', '"elbow_room": false,' | sc ".\profiles\defaults\_default.json"
 	
-	Write-Message  ".\Andy.json: Updating for Ollama server"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft\Andy.json" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" }' | sc  "$VARCD\mindcraft\mindcraft\Andy.json"
+#################### PROFILE  survival.json
+	Write-Message   ".\profiles\defaults\survival.json: Hunting to false" -Type "INFO"
+	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"hunting".*', '"hunting": false,' | sc  ".\profiles\defaults\survival.json"
+	
+	Write-Message   ".\profiles\defaults\survival.json: cowardice to true" -Type "INFO"
+	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"cowardice".*', '"cowardice": true,' | sc ".\profiles\defaults\survival.json"
+	
+	Write-Message   ".\profiles\defaults\survival.json: item_collecting to false" -Type "INFO"
+	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"item_collecting".*', '"item_collecting": false,' | sc ".\profiles\defaults\survival.json"
+	
+	Write-Message   ".\profiles\defaults\survival.json: elbow_room to true" -Type "INFO"
+	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"elbow_room".*', '"elbow_room": false,' | sc ".\profiles\defaults\survival.json"
+	
+	
+	Write-Message  ".\Andy.json: Updating for Ollama server and local TTS"  -Type "INFO"
+	(gc "$VARCD\mindcraft\mindcraft\Andy.json" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system"' | sc  "$VARCD\mindcraft\mindcraft\Andy.json"
+ 
 	
 	}
 	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
