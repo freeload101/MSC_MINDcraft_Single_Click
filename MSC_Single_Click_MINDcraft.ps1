@@ -5,7 +5,7 @@ param(
 
 # function for messages
 #$ErrorActionPreference="Continue"
-$VerNum = 'MSC 1.2'
+$VerNum = 'MSC 1.3'
 $host.ui.RawUI.WindowTitle = $VerNum 
  
 # set current directory
@@ -101,7 +101,7 @@ Function CheckNode {
 ############# downloadFile
 function downloadFile($url, $targetFile)
 {
-    write-host "Downloading $url" -ForegroundColor Green
+	Write-Message  -Message "Downloading $url" -Type "INFO"
     $uri = New-Object "System.Uri" "$url"
     $request = [System.Net.HttpWebRequest]::Create($uri)
     $request.set_Timeout(15000) #15 second timeout
@@ -118,7 +118,7 @@ function downloadFile($url, $targetFile)
         $count = $responseStream.Read($buffer,0,$buffer.length)
     }
         $downloadedBytes = $downloadedBytes + $count
-    write-host "Finished Download"  -ForegroundColor Green
+	Write-Message  -Message "Finished Download" -Type "INFO"
     $targetStream.Flush()
     $targetStream.Close()
     $targetStream.Dispose()
@@ -320,7 +320,6 @@ function mindcraftStart {
 	Write-Message  "Removing Andy memory folder $VARCD\mindcraft\mindcraft\bots\Andy "  -Type "WARNING"
  	Remove-Item -Path "$VARCD\mindcraft\mindcraft\bots\Andy" -Force -ErrorAction SilentlyContinue  -Confirm:$false -Recurse |Out-Null
 	Write-Message  "Starting Mindcraft"  -Type "INFO"
- 	Start-Sleep -Seconds 10
 	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory ".\" -ArgumentList " main.js "
 }
 
@@ -442,7 +441,7 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
 	
 	
 	Write-Message  ".\Andy.json: Updating for Ollama server and local TTS"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft\Andy.json" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system"' | sc  "$VARCD\mindcraft\mindcraft\Andy.json"
+	(gc "$VARCD\mindcraft\mindcraft\Andy.json" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system","embedding": "ollama"' | sc  "$VARCD\mindcraft\mindcraft\Andy.json"
  
 	
 	}
