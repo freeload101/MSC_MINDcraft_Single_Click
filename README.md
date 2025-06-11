@@ -17,3 +17,11 @@ https://youtu.be/XZD90V16C8c
 
 
 ![Andy](https://github.com/user-attachments/assets/9747588a-ea41-4637-a4db-bfd3490c79ce)
+
+
+### Updates
+* Updated LLM to use Andy-4 model
+* added TTS
+* Updaed Repo MINDcraft-CE ( Mindcraft Community Edition )
+* Added support for vison models we are working on ! ( see with screenshots .. )
+* Updated minecraft server to 1.21
