@@ -347,10 +347,10 @@ function CheckSDK{
 	Write-Message  "Installing Microsoft Visual Studio\2022\BuildTools ( for Andy-5 Vision! this will take a while ... ) "  -Type "INFO"
 	Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile "$VARCD\vs_buildtools.exe"
 	Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2173743" -OutFile "$VARCD\winsdksetup.exe"
+	# "--quiet",
+	# "--wait", 
+	# "--norestart",
 			Start-Process -FilePath "$VARCD\vs_buildtools.exe"  -WorkingDirectory "$VARCD\"  -ArgumentList @(
-				"--quiet",
-				"--wait", 
-				"--norestart",
 				"--nocache",
 				"--add", "Microsoft.VisualStudio.Workload.VCTools",
 				"--add", "Microsoft.Component.MSBuild",
