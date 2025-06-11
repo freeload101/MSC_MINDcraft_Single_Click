@@ -10,7 +10,7 @@ One-click PowerShell script for setting up a portable MINDcraft installation.
 
 
 ## Local LLM / if you have a good GPU with dedicated VRAM
-https://youtu.be/PAEwbGJVVWk
+[https://youtu.be/PAEwbGJVVWk](https://youtu.be/6NlM9O5_hX4) : Updated Video 2025/06/06
 
 ## Public Ollama / If you do NOT have good GPU with  with dedicated VRAM
 https://youtu.be/XZD90V16C8c
