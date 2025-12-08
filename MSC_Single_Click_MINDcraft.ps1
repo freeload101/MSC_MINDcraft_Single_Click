@@ -417,7 +417,7 @@ function CheckSDK{
 	New-Item -Path "$VARCD\AppData\Roaming" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null 
 	New-Item -Path  "$VARCD\AppData\Local" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null 
 	 
-	Write-Message  "Installing Microsoft Visual Studio\2022\BuildTools ( for Andy-5 Vision! this will take a while ... ) "  -Type "INFO"
+	Write-Message  "Installing Microsoft Visual Studio\2022\BuildTools ( This will take 5-20 min! ) "  -Type "INFO"
 	Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile "$VARCD\vs_buildtools.exe"
 			Start-Process -FilePath "$VARCD\vs_buildtools.exe"    -ArgumentList @(
 				"--quiet",
@@ -465,8 +465,8 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft-ce" )) {
 	while(!(Select-String -Path "RedirectStandardOutput.txt" -Pattern "patch-package finished" -Quiet)){Start-Sleep -Seconds 10}
 	Write-Message  "Installing mindcraft Complete!"  -Type "INFO"
 
-	Write-Message   "Settings.js: show_bot_views to true bot viewer server prismarine-viewer on http://localhost:3000" -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"show_bot_views".*', '"show_bot_views": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
+	Write-Message   "Settings.js: render_bot_view to true bot viewer server prismarine-viewer on http://localhost:3000" -Type "INFO"
+	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"render_bot_view".*', '"render_bot_view": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
 	
 	Write-Message  "Settings.js: Replace the minecraft port with common Minecraft port"  -Type "INFO"
 	(Get-Content "$VARCD\mindcraft\mindcraft-ce\settings.js").Replace("55916", "25565") | Set-Content "$VARCD\mindcraft\mindcraft-ce\settings.js"
