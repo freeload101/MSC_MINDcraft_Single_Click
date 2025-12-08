@@ -5,7 +5,7 @@ param(
 
 # function for messages
 #$ErrorActionPreference="Continue"
-$VerNum = 'MSC 1.5'
+$VerNum = 'MSC 1.6'
 $host.ui.RawUI.WindowTitle = $VerNum 
  
 # set current directory
@@ -47,6 +47,74 @@ Write-Host  (Get-Date -UFormat "%m/%d:%T")$($Tag)$($Message) -ForegroundColor $C
 ### MAIN ###
 
 ################################# FUNCTIONS
+
+############# Get-MinecraftVersion pick server.jar to use ...
+function Get-MinecraftVersion {
+    # Download version manifest
+    $manifestUrl = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
+    $manifest = Invoke-RestMethod -Uri $manifestUrl
+
+    # Create Windows Form
+    Add-Type -AssemblyName System.Windows.Forms
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Select Minecraft Version"
+    $form.Size = New-Object System.Drawing.Size(400, 500)
+    $form.StartPosition = "CenterScreen"
+
+    # Create ListBox
+    $listBox = New-Object System.Windows.Forms.ListBox
+    $listBox.Location = New-Object System.Drawing.Point(10, 10)
+    $listBox.Size = New-Object System.Drawing.Size(360, 380)
+
+    # Populate ListBox with version IDs (only numbers and dots)
+    foreach ($version in $manifest.versions) {
+        if ($version.id -match '^[\d\.]+$') {
+            [void]$listBox.Items.Add($version.id)
+        }
+    }
+
+    # Create Download Button
+    $button = New-Object System.Windows.Forms.Button
+    $button.Location = New-Object System.Drawing.Point(10, 400)
+    $button.Size = New-Object System.Drawing.Size(360, 40)
+    $button.Text = "Download Selected Version"
+    $button.Add_Click({
+        if ($listBox.SelectedItem) {
+            $selectedId = $listBox.SelectedItem
+            $selectedVersion = $manifest.versions | Where-Object { $_.id -eq $selectedId }
+
+            # Download version JSON
+            Write-Message  "Downloading latest node"  -Type "INFO"
+            $versionJson = Invoke-RestMethod -Uri $selectedVersion.url
+
+            # Download Client JAR
+            if ($versionJson.downloads.client.url) {
+				Write-Message  "Downloading client JAR..."  -Type "INFO"
+                downloadFile $versionJson.downloads.client.url "$VARCD\client.jar"
+            }
+
+            # Download Server JAR
+            if ($versionJson.downloads.server.url) {
+				Write-Message  "Downloading server JAR..."  -Type "INFO"
+                downloadFile $versionJson.downloads.server.url "$VARCD\mindcraft\MinecraftServer\server.jar"
+            }
+            $form.Close()
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a version", "Error")
+        }
+    })
+
+    # Add controls to form
+    $form.Controls.Add($listBox)
+    $form.Controls.Add($button)
+
+    # Show form
+    [void]$form.ShowDialog()
+}
+
+
+
+
 ############# CHECK PYTHON
 Function CheckPython {
    if (-not(Test-Path -Path "$VARCD\python" )) {
@@ -481,7 +549,10 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\MinecraftServer" )) {
 	Set-Location -Path "$VARCD\mindcraft\MinecraftServer"
 	
 	Write-Message  "Downloading MinecraftServer"  -Type "INFO"
-	downloadFile "https://piston-data.mojang.com/v1/objects/59353fb40c36d304f2035d51e7d6e6baa98dc05c/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar"
+	#downloadFile "https://piston-data.mojang.com/v1/objects/59353fb40c36d304f2035d51e7d6e6baa98dc05c/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" 
+	# downloadFile "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" # 1.21.8 too new for prismarine-viewer ?
+	downloadFile "https://piston-data.mojang.com/v1/objects/6e64dcabba3c01a7271b4fa6bd898483b794c59b/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" # 1.21.6 for prismarine-viewer to work ?
+	
 	# Create and configure server.properties
 
 $properties = @"
@@ -552,6 +623,17 @@ $Button.Location = New-Object System.Drawing.Point(($hShift),($vShift+0))
 $Button.Add_Click({CMDPrompt})
 $main_form.Controls.Add($Button)
 $vShift = $vShift + 30
+
+############# CMDPrompt
+$Button = New-Object System.Windows.Forms.Button
+$Button.AutoSize = $true
+$Button.Text = "Change Minecraft Server.jar"
+$Button.Location = New-Object System.Drawing.Point(($hShift),($vShift+0))
+$Button.Add_Click({Get-MinecraftVersion})
+$main_form.Controls.Add($Button)
+$vShift = $vShift + 30
+
+
 
 ############# UpdateJAMBO
 $Button = New-Object System.Windows.Forms.Button
