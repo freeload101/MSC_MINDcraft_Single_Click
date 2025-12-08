@@ -5,7 +5,7 @@ param(
 
 # function for messages
 #$ErrorActionPreference="Continue"
-$VerNum = 'MSC 1.4'
+$VerNum = 'MSC 1.5'
 $host.ui.RawUI.WindowTitle = $VerNum 
  
 # set current directory
@@ -315,10 +315,10 @@ function OllamaGapeFind {
 
 #################### mindcraftStart
 function mindcraftStart {
-	Set-Location -Path "$VARCD\mindcraft\mindcraft\" -ErrorAction SilentlyContinue |Out-Null
+	Set-Location -Path "$VARCD\mindcraft\mindcraft-ce\" -ErrorAction SilentlyContinue |Out-Null
  
-	Write-Message  "Removing Andy memory folder $VARCD\mindcraft\mindcraft\bots\Andy "  -Type "WARNING"
- 	Remove-Item -Path "$VARCD\mindcraft\mindcraft\bots\Andy" -Force -ErrorAction SilentlyContinue  -Confirm:$false -Recurse |Out-Null
+	Write-Message  "Removing Andy memory folder $VARCD\mindcraft\mindcraft-ce\bots\Andy "  -Type "WARNING"
+ 	Remove-Item -Path "$VARCD\mindcraft\mindcraft-ce\bots\Andy" -Force -ErrorAction SilentlyContinue  -Confirm:$false -Recurse |Out-Null
 	Write-Message  "Starting Mindcraft"  -Type "INFO"
 	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory ".\" -ArgumentList " main.js "
 }
@@ -378,45 +378,44 @@ CheckJava
 CheckNode
 MinecraftServer
 	
-if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
+if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft-ce" )) {
 	
 	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
 	New-Item -Path "$VARCD\mindcraft" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
 	
 	Write-Message  "Running git clone https://github.com/mindcraft-ce/mindcraft-ce.git "  -Type "INFO"
 	Start-Process -FilePath "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList " clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`" " -wait -NoNewWindow
-	Rename-Item -Path "$VARCD\mindcraft\mindcraft-ce" -NewName "$VARCD\mindcraft\mindcraft" 
-	Set-Location -Path "$VARCD\mindcraft\mindcraft\" -ErrorAction SilentlyContinue |Out-Null
+	Set-Location -Path "$VARCD\mindcraft\mindcraft-ce\" -ErrorAction SilentlyContinue |Out-Null
 	
 	
 	Write-Message  "Installing mindcraft. This may take a while..."  -Type "INFO"
-	Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft\" -ArgumentList " install --progress=true --loglevel=info " -NoNewWindow   -RedirectStandardOutput RedirectStandardOutput.txt -RedirectStandardError RedirectStandardError.txt
+	Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce\" -ArgumentList " install --progress=true --loglevel=info " -NoNewWindow   -RedirectStandardOutput RedirectStandardOutput.txt -RedirectStandardError RedirectStandardError.txt
 	Start-Sleep -Seconds 5
 	
-	Start-Process powershell -ArgumentList "-NoExit", "-Command", "& {Get-Content '$VARCD\mindcraft\mindcraft\RedirectStandardError.txt' -Wait}"
+	Start-Process powershell -ArgumentList "-NoExit", "-Command", "& {Get-Content '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt' -Wait}"
     
 	while(!(Select-String -Path "RedirectStandardOutput.txt" -Pattern "patch-package finished" -Quiet)){Start-Sleep -Seconds 10}
 	Write-Message  "Installing mindcraft Complete!"  -Type "INFO"
 
 	Write-Message   "Settings.js: show_bot_views to true bot viewer server prismarine-viewer on http://localhost:3000" -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft\settings.js" -Raw) -replace '"show_bot_views".*', '"show_bot_views": true,' | sc  "$VARCD\mindcraft\mindcraft\settings.js"
+	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"show_bot_views".*', '"show_bot_views": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
 	
 	Write-Message  "Settings.js: Replace the minecraft port with common Minecraft port"  -Type "INFO"
-	(Get-Content "$VARCD\mindcraft\mindcraft\settings.js").Replace("55916", "25565") | Set-Content "$VARCD\mindcraft\mindcraft\settings.js"
+	(Get-Content "$VARCD\mindcraft\mindcraft-ce\settings.js").Replace("55916", "25565") | Set-Content "$VARCD\mindcraft\mindcraft-ce\settings.js"
 	
 	Write-Message  "Settings.js: Replace the Mindcraft port with less common port I have stuff runnning on 8080 so change to 8881"  -Type "INFO"
-	(Get-Content "$VARCD\mindcraft\mindcraft\settings.js").Replace("8080", "8881") | Set-Content "$VARCD\mindcraft\mindcraft\settings.js" 
+	(Get-Content "$VARCD\mindcraft\mindcraft-ce\settings.js").Replace("8080", "8881") | Set-Content "$VARCD\mindcraft\mindcraft-ce\settings.js" 
  
 	Write-Message  ".\Settings.js: Enableing TTS"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft\settings.js" -Raw) -replace '"speak".*', '"speak": true,' | sc  "$VARCD\mindcraft\mindcraft\settings.js"
+	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"speak".*', '"speak": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
 	 
 	Write-Message  ".\Settings.js: Enableing Vison"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft\settings.js" -Raw) -replace '"allow_vision".*', '"allow_vision": true,' | sc  "$VARCD\mindcraft\mindcraft\settings.js"
-	(gc "$VARCD\mindcraft\mindcraft\settings.js" -Raw) -replace '"vision_mode".*', '"vision_mode": "always",' | sc  "$VARCD\mindcraft\mindcraft\settings.js"
+	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"allow_vision".*', '"allow_vision": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
+	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"vision_mode".*', '"vision_mode": "always",' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
 
-	Write-Message  ".\src\server\mind_server.js: Replace the Mindcraft server port with 8082 "  -Type "INFO"
-	(Get-Content "$VARCD\mindcraft\mindcraft\src\server\mind_server.js").Replace("8080", "8082") | Set-Content "$VARCD\mindcraft\mindcraft\src\server\mind_server.js"
- 
+	Write-Message  "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js: Replace the Mindcraft server port with 8881 "  -Type "INFO"
+	(Get-Content "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js").Replace("8080", "8881") | Set-Content "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js"
+
 	#################### PROFILE  _default.json
 	Write-Message   ".\profiles\defaults\_default.json: Hunting to false" -Type "INFO"
 	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"hunting".*', '"hunting": false,' | sc  ".\profiles\defaults\_default.json"
@@ -445,23 +444,23 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft" )) {
 	
 	
 	Write-Message  ".\Andy.json: Updating for Ollama server and local TTS"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft\Andy.json" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system","embedding": "ollama"' | sc  "$VARCD\mindcraft\mindcraft\Andy.json"
+	(gc "$VARCD\mindcraft\mindcraft-ce\Andy.json" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system","embedding": "ollama"' | sc  "$VARCD\mindcraft\mindcraft-ce\Andy.json"
  
 	
 	}
 	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
-	New-Item -Path "$VARCD\mindcraft\mindcraft\" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
-	Set-Location -Path "$VARCD\mindcraft\mindcraft\" -ErrorAction SilentlyContinue |Out-Null
+	New-Item -Path "$VARCD\mindcraft\mindcraft-ce\" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
+	Set-Location -Path "$VARCD\mindcraft\mindcraft-ce\" -ErrorAction SilentlyContinue |Out-Null
 	if($Global:GPUVRAM -match "0"){
 		Write-Message  ".\Andy.json: No GPU VRAM found Looking for Open Ollama server"  -Type "WARNING"
 		OllamaGapeFind
 		Write-Message  ".\Andy.json: Updating Global:OllamaValidIP: $Global:OllamaValidIP  and  OllamaValidModel: $Global:OllamaValidModel  "  -Type "INFO"
 		(Get-Content "$VARCD\Andy.json").Replace("localhost", "$Global:OllamaValidIP") | Set-Content "$VARCD\Andy.json"
-		(gc "$VARCD\mindcraft\mindcraft\Andy.orig" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "$Global:OllamaValidIP","model": "$Global:OllamaValidModel" }' | sc  "$VARCD\mindcraft\mindcraft\Andy.json"
+		(gc "$VARCD\mindcraft\mindcraft-ce\Andy.orig" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "$Global:OllamaValidIP","model": "$Global:OllamaValidModel" }' | sc  "$VARCD\mindcraft\mindcraft-ce\Andy.json"
 	}
 
  	Write-Message  "Starting Mindcraft"  -Type "INFO"
-	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory "$VARCD\mindcraft\mindcraft" -ArgumentList " main.js " 
+	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList " main.js " 
  
  	Write-Message  "Waiting to start bot viewer server prismarine-viewer on http://localhost:3000"  -Type "INFO"
 	Start-Sleep 15
