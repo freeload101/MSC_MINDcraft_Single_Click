@@ -15,7 +15,7 @@ function downloadFile($url, $targetFile) {
     $response = $request.GetResponse()
     $responseStream = $response.GetResponseStream()
     $targetStream = New-Object -TypeName System.IO.FileStream -ArgumentList $targetFile, Create
-    $buffer = new-object byte[] 10KB
+    $buffer = new-object byte[] 64KB
     $count = $responseStream.Read($buffer,0,$buffer.length)
     while ($count -gt 0) {
         $targetStream.Write($buffer, 0, $count)
@@ -27,15 +27,15 @@ function downloadFile($url, $targetFile) {
     $responseStream.Dispose()
 }
 
-# Async download with fast method
+# Async download with 16 threads
 function Download-Async($downloads) {
     $jobs = @()
-    $throttle = 8
+    $throttle = 16
     $i = 0
 
     foreach ($dl in $downloads) {
         while ((Get-Job -State Running).Count -ge $throttle) {
-            Start-Sleep -Milliseconds 100
+            Start-Sleep -Milliseconds 50
         }
 
         $jobs += Start-Job -ScriptBlock {
@@ -50,7 +50,7 @@ function Download-Async($downloads) {
                     $response = $request.GetResponse()
                     $responseStream = $response.GetResponseStream()
                     $targetStream = New-Object -TypeName System.IO.FileStream -ArgumentList $path, Create
-                    $buffer = new-object byte[] 10KB
+                    $buffer = new-object byte[] 64KB
                     $count = $responseStream.Read($buffer,0,$buffer.length)
                     while ($count -gt 0) {
                         $targetStream.Write($buffer, 0, $count)
@@ -64,7 +64,7 @@ function Download-Async($downloads) {
             }
         } -ArgumentList $dl.url, $dl.path
 
-        if (++$i % 50 -eq 0) { Write-Host "Queued $i/$($downloads.Count) downloads..." }
+        if (++$i % 100 -eq 0) { Write-Host "Queued $i/$($downloads.Count) downloads..." }
     }
 
     $jobs | Wait-Job | Remove-Job
@@ -78,9 +78,8 @@ function Create-ServersDat($serverIp, $serverPort, $serverName, $outputPath) {
     $writer = New-Object System.IO.BinaryWriter($ms)
 
     # NBT format for servers.dat
-    # TAG_Compound (root)
     $writer.Write([byte]10) # TAG_Compound
-    $writer.Write([byte]0)  # Name length (root has no name)
+    $writer.Write([byte]0)  # Name length
     $writer.Write([byte]0)
 
     # TAG_List "servers"
@@ -89,11 +88,10 @@ function Create-ServersDat($serverIp, $serverPort, $serverName, $outputPath) {
     $writer.Write([int16]([System.Net.IPAddress]::HostToNetworkOrder([int16]$nameBytes.Length)))
     $writer.Write($nameBytes)
     $writer.Write([byte]10) # List type: TAG_Compound
-    $writer.Write([int32]([System.Net.IPAddress]::HostToNetworkOrder([int32]1))) # List length: 1 server
+    $writer.Write([int32]([System.Net.IPAddress]::HostToNetworkOrder([int32]1)))
 
-    # Server entry TAG_Compound
-    # TAG_String "ip"
-    $writer.Write([byte]8)  # TAG_String
+    # Server entry
+    $writer.Write([byte]8)  # TAG_String "ip"
     $ipTagBytes = [System.Text.Encoding]::UTF8.GetBytes("ip")
     $writer.Write([int16]([System.Net.IPAddress]::HostToNetworkOrder([int16]$ipTagBytes.Length)))
     $writer.Write($ipTagBytes)
@@ -102,8 +100,7 @@ function Create-ServersDat($serverIp, $serverPort, $serverName, $outputPath) {
     $writer.Write([int16]([System.Net.IPAddress]::HostToNetworkOrder([int16]$serverAddressBytes.Length)))
     $writer.Write($serverAddressBytes)
 
-    # TAG_String "name"
-    $writer.Write([byte]8)  # TAG_String
+    $writer.Write([byte]8)  # TAG_String "name"
     $nameTagBytes = [System.Text.Encoding]::UTF8.GetBytes("name")
     $writer.Write([int16]([System.Net.IPAddress]::HostToNetworkOrder([int16]$nameTagBytes.Length)))
     $writer.Write($nameTagBytes)
@@ -111,11 +108,8 @@ function Create-ServersDat($serverIp, $serverPort, $serverName, $outputPath) {
     $writer.Write([int16]([System.Net.IPAddress]::HostToNetworkOrder([int16]$serverNameBytes.Length)))
     $writer.Write($serverNameBytes)
 
-    # TAG_End (end of server compound)
-    $writer.Write([byte]0)
-
-    # TAG_End (end of root compound)
-    $writer.Write([byte]0)
+    $writer.Write([byte]0) # TAG_End server compound
+    $writer.Write([byte]0) # TAG_End root compound
 
     $writer.Flush()
     [System.IO.File]::WriteAllBytes($outputPath, $ms.ToArray())
@@ -128,7 +122,6 @@ if (!(Test-Path "$VARCD\jdk")) {
     Write-Host "Downloading Java..." -ForegroundColor Yellow
     downloadFile "https://download.java.net/java/GA/jdk24/1f9ff9062db4449d8ca828c504ffae90/36/GPL/openjdk-24_windows-x64_bin.zip" "$VARCD\jdk.zip"
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    Add-Type -AssemblyName System.IO.Compression
     [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\jdk.zip", "$VARCD")
     Get-ChildItem "$VARCD\jdk-*" | Rename-Item -NewName { $_.Name -replace '-.*','' }
 }
@@ -184,49 +177,39 @@ foreach ($lib in $versionJson.libraries) {
 Write-Host "Downloading client and libraries..." -ForegroundColor Cyan
 Download-Async $downloads
 
-# Download assets from PixiGeko repository
-Write-Host "Downloading assets from PixiGeko repository..." -ForegroundColor Cyan
-$assetsZipUrl = "https://github.com/PixiGeko/Minecraft-default-assets/archive/refs/heads/$version.zip"
-$assetsZipPath = "$VARCD\assets_temp.zip"
+# Download assets using Mojang's asset index
+Write-Host "Downloading asset index..." -ForegroundColor Cyan
+$assetsIndexDir = "$assetsDir\indexes"
+$assetsObjectsDir = "$assetsDir\objects"
+New-Item -ItemType Directory -Force -Path $assetsIndexDir, $assetsObjectsDir | Out-Null
 
-try {
-    downloadFile $assetsZipUrl $assetsZipPath
-    Write-Host "Extracting assets..." -ForegroundColor Cyan
+# Download asset index
+$assetIndexUrl = $versionJson.assetIndex.url
+$assetIndexPath = "$assetsIndexDir\$($versionJson.assetIndex.id).json"
+downloadFile $assetIndexUrl $assetIndexPath
 
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    Add-Type -AssemblyName System.IO.Compression
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($assetsZipPath, "$VARCD\assets_temp")
+# Parse asset index
+$assetIndex = Get-Content $assetIndexPath | ConvertFrom-Json
 
-    # Move assets to correct location
-    $extractedPath = "$VARCD\assets_temp\Minecraft-default-assets-$version\assets"
-    if (Test-Path $extractedPath) {
-        Copy-Item -Path "$extractedPath\*" -Destination $assetsDir -Recurse -Force
+# Prepare asset downloads
+Write-Host "Preparing asset downloads..." -ForegroundColor Cyan
+$assetDownloads = @()
+foreach ($asset in $assetIndex.objects.PSObject.Properties) {
+    $hash = $asset.Value.hash
+    $hashPrefix = $hash.Substring(0, 2)
+    $assetPath = "$assetsObjectsDir\$hashPrefix\$hash"
+
+    if (!(Test-Path $assetPath)) {
+        $assetDownloads += @{
+            url = "https://resources.download.minecraft.net/$hashPrefix/$hash"
+            path = $assetPath
+        }
     }
-
-    # Cleanup
-    Remove-Item $assetsZipPath -Force
-    Remove-Item "$VARCD\assets_temp" -Recurse -Force
-    Write-Host "Assets downloaded successfully!" -ForegroundColor Green
-} catch {
-    Write-Host "Failed to download from PixiGeko, falling back to Mojang CDN..." -ForegroundColor Yellow
-
-    # Fallback to individual asset downloads
-    $assetsIndexDir = "$VARCD\indexes"
-    $assetsObjectsDir = "$VARCD\objects"
-    New-Item -ItemType Directory -Force -Path $assetsIndexDir, $assetsObjectsDir | Out-Null
-
-    $assetIndex = Invoke-RestMethod $versionJson.assetIndex.url
-    $assetIndex | ConvertTo-Json -Depth 100 | Out-File "$assetsIndexDir\$($versionJson.assetIndex.id).json"
-
-    $assetDownloads = @()
-    foreach ($asset in $assetIndex.objects.PSObject.Properties) {
-        $hash = $asset.Value.hash
-        $hashPrefix = $hash.Substring(0, 2)
-        $assetDownloads += @{url="https://resources.download.minecraft.net/$hashPrefix/$hash"; path="$assetsObjectsDir\$hashPrefix\$hash"}
-    }
-
-    Download-Async $assetDownloads
 }
+
+Write-Host "Downloading $($assetDownloads.Count) assets..." -ForegroundColor Cyan
+Download-Async $assetDownloads
+Write-Host "Assets downloaded successfully!" -ForegroundColor Green
 
 # Create servers.dat
 Write-Host "Creating servers.dat..." -ForegroundColor Cyan
@@ -235,7 +218,7 @@ Create-ServersDat "tunnel.rmccurdy.com" "55631" "RMcCurdy Server" "$minecraftDir
 # Build classpath
 $classpath = "$versionsDir\$version.jar;" + ((Get-ChildItem -Path $librariesDir -Recurse -Filter *.jar).FullName -join ";")
 
-# Create launch script in base directory
+# Create launch script
 $launchScript = @"
 @echo off
 set /p PlayerName="Enter Minecraft Username: "
@@ -246,4 +229,4 @@ cd /d "$minecraftDir"
 $launchScript | Out-File "$VARCD\launch_$version.bat" -Encoding ASCII
 
 Write-Host "`nComplete! Launch: $VARCD\launch_$version.bat" -ForegroundColor Green
-Start-Process "$VARCD\launch_$version.bat" 
+Start-Process "$VARCD\launch_$version.bat"
