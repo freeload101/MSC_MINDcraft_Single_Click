@@ -215,15 +215,18 @@ Write-Host "Assets downloaded successfully!" -ForegroundColor Green
 Write-Host "Creating servers.dat..." -ForegroundColor Cyan
 Create-ServersDat "tunnel.rmccurdy.com" "55631" "RMcCurdy Server" "$minecraftDir\servers.dat"
 
-# Build classpath
-$classpath = "$versionsDir\$version.jar;" + ((Get-ChildItem -Path $librariesDir -Recurse -Filter *.jar).FullName -join ";")
+# Build classpath with relative paths from script directory
+$classpathItems = @("%~dp0versions\$version\$version.jar")
+$classpathItems += (Get-ChildItem -Path $librariesDir -Recurse -Filter *.jar | ForEach-Object { 
+    "%~dp0libraries\" + $_.FullName.Substring($librariesDir.Length + 1)
+})
+$classpath = $classpathItems -join ";"
 
-# Create launch script
+# Create launch script - stay in script directory, not minecraft directory
 $launchScript = @"
 @echo off
 set /p PlayerName="Enter Minecraft Username: "
-cd /d "$minecraftDir"
-"$VARCD\jdk\bin\javaw.exe" -Xmx2G -Xms1G -cp "$classpath" net.minecraft.client.main.Main --version $version --accessToken 0 --userProperties {} --gameDir "$minecraftDir" --assetsDir "$assetsDir" --assetIndex $($versionJson.assetIndex.id) --username "%PlayerName%"
+"%~dp0jdk\bin\javaw.exe" -Xmx2G -Xms1G -cp "$classpath" net.minecraft.client.main.Main --version $version --accessToken 0 --userProperties {} --gameDir "%~dp0minecraft" --assetsDir "%~dp0assets" --assetIndex $($versionJson.assetIndex.id) --username "%PlayerName%"
 "@
 
 $launchScript | Out-File "$VARCD\launch_$version.bat" -Encoding ASCII
