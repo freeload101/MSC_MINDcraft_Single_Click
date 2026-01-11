@@ -8,6 +8,14 @@ One-click PowerShell script for setting up a portable MINDcraft installation.
 - Uses public Ollama servers if local GPU requirements aren't met
 - A self-contained portable toolkit with Java, Node.js, Git, Minecraft, and Ollama (VRAM required) that runs entirely from its folder without system modifications.
 
+## If you need Java client run this! It has my server info already in it !
+
+Java: tunnel.rmccurdy.com:55631 
+
+Bedrock: tunnel.rmccurdy.com:55632
+ 
+https://github.com/freeload101/MSC_MINDcraft_Single_Click/blob/main/MJSC_MineCraft_Java_Single_Click.ps1 
+
 
 ## Local LLM / if you have a good GPU with dedicated VRAM
 [https://youtu.be/PAEwbGJVVWk](https://youtu.be/6NlM9O5_hX4) : Updated Video 2025/06/06
