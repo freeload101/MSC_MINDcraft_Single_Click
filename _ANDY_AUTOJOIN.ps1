@@ -317,7 +317,8 @@ if ($playerList) {
             }
         }
         else {
-            Write-Host "`nOnly andy (or no players) online. No action needed." -ForegroundColor Yellow
+			Write-Host "`nOnly andy (or no players) online. Killing node." -ForegroundColor Yellow
+			Stop-process -name node -Force -ErrorAction SilentlyContinue |Out-Null
         }
     }
     else {
