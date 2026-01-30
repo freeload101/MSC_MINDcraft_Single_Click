@@ -3,7 +3,7 @@ param(
     [string]$Headless
 )
 
-$VerNum = '_ANDY_AUTOJOIN 1.0a'
+$VerNum = 'MSC 1.6'
 $host.ui.RawUI.WindowTitle = $VerNum 
 
 Set-Location ($VARCD = "C:\backup\MSC1" ); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
@@ -32,7 +32,7 @@ function mindcraftStart {
 $serverHost = "192.168.1.151"
 $serverPort = 25565
 $rconPort = 25575
-$rconPassword = "YOURPASSWORD"
+$rconPassword = "ftGwZPweJzbdyYNB"
 
 function Send-RconCommand {
     param(
@@ -167,10 +167,12 @@ function Check-AndTeleportIfNeeded {
             Write-Host "`n=== TELEPORTING ===" -ForegroundColor Green
             Write-Host "Andy is NOT within 50 blocks of any player. Teleporting to closest player: [$closestPlayer] (Distance: $([Math]::Round($closestDistance, 2)) blocks)"
 
-            $tpCommand = "tp andy $closestPlayer"
+            $tpCommand = "execute at $closestPlayer run tp andy ~10 ~1 ~10"
             Write-Host "TP command: [$tpCommand]"
 
             $tpResult = Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command $tpCommand
+			# Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/tp Andy ~-30 ~-30 ~"
+			
             Write-Host "Teleport result: [$tpResult]" -ForegroundColor Green
 			
 			# Clean after teleport
@@ -256,22 +258,24 @@ if ($playerList) {
 					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:golden_apple 64'
 					
 					# Armor
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:diamond_helmet[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:respiration":3,"minecraft:aqua_affinity":1}]'
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:diamond_chestplate[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1}]'
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:diamond_leggings[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1}]'
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:diamond_boots[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:feather_falling":4,"minecraft:depth_strider":3}]'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:netherite_helmet[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:respiration":3,"minecraft:aqua_affinity":1,"minecraft:thorns":3}]'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:netherite_chestplate[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:thorns":3}]'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:netherite_leggings[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:thorns":3,"minecraft:swift_sneak":3}]'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:golden_boots[minecraft:enchantments={"minecraft:protection":4,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:feather_falling":4,"minecraft:depth_strider":3}]'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:netherite_sword[minecraft:enchantments={"minecraft:sharpness":5,"minecraft:sweeping_edge":3,"minecraft:looting":3,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:fire_aspect":2}]'
 					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:shield[minecraft:enchantments={"minecraft:unbreaking":3,"minecraft:mending":1}]'
 
 					# Equip armor
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.head with minecraft:diamond_helmet'
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.chest with minecraft:diamond_chestplate'
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.legs with minecraft:diamond_leggings'
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.feet with minecraft:diamond_boots'
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy weapon.mainhand with minecraft:diamond_sword'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.head with minecraft:netherite_helmet'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.chest with minecraft:netherite_chestplate'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.legs with minecraft:netherite_leggings'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy armor.feet with minecraft:golden_boots'
+					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy weapon.mainhand with minecraft:netherite_sword'
 					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/item replace entity Andy weapon.offhand with minecraft:shield'
+
 					
 					# Wepons
-					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:diamond_sword[minecraft:enchantments={"minecraft:sharpness":5,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:looting":3,"minecraft:sweeping_edge":3}]'
+					#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:diamond_sword[minecraft:enchantments={"minecraft:sharpness":5,"minecraft:unbreaking":3,"minecraft:mending":1,"minecraft:looting":3,"minecraft:sweeping_edge":3}]'
 					Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:diamond_axe[minecraft:enchantments={"minecraft:sharpness":5,"minecraft:efficiency":5,"minecraft:unbreaking":3,"minecraft:mending":1}]'
 					#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:bow[minecraft:enchantments={"minecraft:power":5,"minecraft:unbreaking":3,"minecraft:flame":1,"minecraft:infinity":1,"minecraft:punch":2}]'
 					#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command '/give andy minecraft:crossbow[minecraft:enchantments={"minecraft:quick_charge":3,"minecraft:multishot":1,"minecraft:unbreaking":3,"minecraft:mending":1}]'
@@ -313,16 +317,19 @@ if ($playerList) {
                 }
                 else {
                     Write-Host "No non-andy players found after refresh!" -ForegroundColor Red
+					
                 }
             }
         }
         else {
-			Write-Host "`nOnly andy (or no players) online. Killing node." -ForegroundColor Yellow
+            Write-Host "`nOnly andy (or no players) online. Killing node." -ForegroundColor Yellow
 			Stop-process -name node -Force -ErrorAction SilentlyContinue |Out-Null
         }
     }
     else {
         Write-Host "No players online or unable to parse player list." -ForegroundColor Red
+		
+
     }
 }
 else {
