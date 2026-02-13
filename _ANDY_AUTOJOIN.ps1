@@ -32,7 +32,7 @@ function mindcraftStart {
 $serverHost = "192.168.1.151"
 $serverPort = 25565
 $rconPort = 25575
-$rconPassword = "ftGwZPweJzbdyYNB"
+$rconPassword = "XXXXXXXXXXXXXXX"
 
 function Send-RconCommand {
     param(
@@ -167,7 +167,7 @@ function Check-AndTeleportIfNeeded {
             Write-Host "`n=== TELEPORTING ===" -ForegroundColor Green
             Write-Host "Andy is NOT within 50 blocks of any player. Teleporting to closest player: [$closestPlayer] (Distance: $([Math]::Round($closestDistance, 2)) blocks)"
 
-            $tpCommand = "execute at $closestPlayer run tp andy ~10 ~1 ~10"
+            $tpCommand = "execute at $closestPlayer run tp andy ~30 ~1 ~30"
             Write-Host "TP command: [$tpCommand]"
 
             $tpResult = Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command $tpCommand
@@ -185,22 +185,22 @@ function Check-AndTeleportIfNeeded {
 				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:gravel"
 				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:sand"
 				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:stone"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:deepslate"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:tuff"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:calcite"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:deepslate"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:tuff"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:calcite"
 				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:netherrack"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:soul_sand"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:soul_soil"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:basalt"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:blackstone"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:spider_eye"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:bone"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:string"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:wheat_seeds"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:beetroot_seeds"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:pumpkin_seeds"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:melon_seeds"
-				Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:poisonous_potato"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:soul_sand"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:soul_soil"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:basalt"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:blackstone"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:spider_eye"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:bone"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:string"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:wheat_seeds"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:beetroot_seeds"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:pumpkin_seeds"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:melon_seeds"
+				#Send-RconCommand -ServerHost $serverHost -Port $rconPort -Password $rconPassword -Command "/clear andy minecraft:poisonous_potato"
 
 			
         }
