@@ -5,7 +5,7 @@ param(
 
 # function for messages
 #$ErrorActionPreference="Continue"
-$VerNum = 'MSC 1.6'
+$VerNum = 'MSC 1.7'
 $host.ui.RawUI.WindowTitle = $VerNum 
  
 # set current directory
@@ -253,6 +253,15 @@ Start-Process -FilePath "powershell" -WorkingDirectory "$VARCD\" -ArgumentList "
 
 ############# EXECheckOllama
 function EXECheckOllama{
+		Write-Message   "Setting Environment Variables for Ollamma"  -Type "INFO"
+		$env:OLLAMA_HOST = "0.0.0.0"
+		# $env:OLLAMA_NUM_PARALLEL = 1
+		# $env:OLLAMA_MAX_LOADED_MODELS = 3
+		# $env:OLLAMA_KEEP_ALIVE = "60m"
+		$env:OLLAMA_KEEP_ALIVE = "-1"
+		$env:OLLAMA_FLASH_ATTENTION = "1" 
+		$env:OLLAMA_MODELS = "$VARCD\Ollama\.ollama"
+		
   if (-not(Test-Path -Path "$VARCD\Ollama" )) {
 	 
 		Stop-process -name ollama -Force -ErrorAction SilentlyContinue |Out-Null
@@ -266,15 +275,8 @@ function EXECheckOllama{
 		Add-Type -AssemblyName System.IO.Compression
 		[System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\ollama-windows-amd64.zip", "$VARCD\Ollama\")
 		
-		Write-Message   "Setting Environment Variables for Ollamma"  -Type "INFO"
-		$env:OLLAMA_HOST = "0.0.0.0"
-		# $env:OLLAMA_NUM_PARALLEL = 1
-		# $env:OLLAMA_MAX_LOADED_MODELS = 3
-		# $env:OLLAMA_KEEP_ALIVE = "60m"
-		$env:OLLAMA_KEEP_ALIVE = "-1"
-		$env:OLLAMA_FLASH_ATTENTION = "1" 
-		$env:OLLAMA_MODELS = "$VARCD\Ollama\.ollama"
-		
+	
+	
 		# Write-Message   "Attempting to set System.Environment Variables for Ollama ( Run these lines as admin if you want to run Ollama outside of this script  )"  -Type "WARNING"
 		# Run the following as admin to get env outside of this script!
 		# [System.Environment]::SetEnvironmentVariable("OLLAMA_MODELS", "$VARCD\Ollama\.ollama", [System.EnvironmentVariableTarget]::Machine)
@@ -311,92 +313,28 @@ function EXECheckOllama{
  
 		}
 }
-
-############# OllamaGape
-function OllamaGape {
-    param(
-        $OllamaIP
-    )
-
-    Write-Message  "Checking: $OllamaIP"  -Type "INFO"
-    $OllamaIP = $OllamaIP -replace ',.*',''
-    try {
-
-        $Global:OllamaCheck = Invoke-RestMethod -Uri "http://${OllamaIP}:11434/api/tags" -TimeoutSec 2 | Select-Object -ExpandProperty models | Select-Object name,size,modified  | Sort-Object -Property Size  | Select-Object name -First 1
-        $Global:OlammaModel = $OllamaCheck.name
-    } catch {
-        throw  "Error: $_"
-      }
-
-    if([string]::IsNullOrWhiteSpace($OllamaCheck) -or ($OllamaCheck -match "smollm")){
-        return
-    }else{
-        $uri = "http://${OllamaIP}:11434/api/chat"
-        $headers = @{"Content-Type"="application/json"}
-        $body = @{
-            model="${OlammaModel}"
-            messages=@(@{role="user";content="What's the default port for a Minecraft server?. be sure to only respond with a single word or token"})
-            stream=$false
-        } | ConvertTo-Json
-
-        try {
-             $CSV = $OllamaIP + "," + $OlammaModel +  "," + (Invoke-RestMethod -Uri $uri -TimeoutSec 15 -Method Post -Headers $headers -Body $body -ContentType "application/json").message.content # | Out-File -FilePath "OllamaGape.txt" -Encoding UTF8 -Append
-             if(($CSV -match "25565")){
-                   return $CSV
-                 } else {
-                    throw  "Error: null or not 25565 $CSV"
-                 }
-            
-        } catch {
-           throw  "Error: $_"
-        }
-    }
-      
-}
-
-#################### OllamaGapeFind
-function OllamaGapeFind {
-	Write-Message  "Downloading latest Public Ollama Server list"  -Type "INFO"
-	Invoke-WebRequest -Uri "https://raw.githubusercontent.com/freeload101/SCRIPTS/refs/heads/master/MISC/OllamaGape.csv" -OutFile "$VARCD\mindcraft\OllamaGape.txt"
-		
-    $maxAttempts = 10  # Maximum number of attempts
-    $attempt = 1      # Current attempt counter
-    $success = $false # Success flag
-
-    while (-not $success -and $attempt -le $maxAttempts) {
-        try {
-        
-            $OllamaCSV = OllamaGape (Get-Content "$VARCD\mindcraft\OllamaGape.txt" | Get-Random )
-			$Global:OllamaValidIP = $OllamaCSV -replace ',.*',''  -replace '\r',''  -replace '\n','' -replace '\s',''
-            $Global:OllamaValidModel = $Global:OlammaModel
-			
-       		Write-Message  "Attempt $attempt Operation successful $OllamaCSV IP $Global:OllamaValidIP Model $Global:OllamaValidModel"  -Type "INFO"
-            $success = $true  # Set success flag to exit loop
-        
-        }
-        catch {
-            Write-Message  "Attempt $attempt failed with error: $($_.Exception.Message)"  -Type "ERROR"
-            $attempt++
-        }
-    }
-}
-
-#################### mindcraftStart
-function mindcraftStart {
-	Set-Location -Path "$VARCD\mindcraft\mindcraft-ce\" -ErrorAction SilentlyContinue |Out-Null
  
-	Write-Message  "Removing Andy memory folder $VARCD\mindcraft\mindcraft-ce\bots\Andy "  -Type "WARNING"
- 	Remove-Item -Path "$VARCD\mindcraft\mindcraft-ce\bots\Andy" -Force -ErrorAction SilentlyContinue  -Confirm:$false -Recurse |Out-Null
-	Write-Message  "Starting Mindcraft"  -Type "INFO"
-	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory ".\" -ArgumentList " main.js "
-}
-
+ 
 ############# CheckGPU
 Function CheckGPU {
+	
+	Write-Message  "Writing out $VARCD\mindcraft\mindcraft-ce\Andy.json Template"  -Type "INFO"
+$content = @'
+{
+	"name": "andy",
+
+	"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system"
+
+}
+'@
+	$content | Set-Content -Path "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline 
+
+
 	$GPUList = Get-ItemProperty -Path "HKLM:\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0*"   | Where-Object {$_."HardwareInformation.qwMemorySize" -gt 0}  	
 	$VRAM = [math]::round($GPUList."HardwareInformation.qwMemorySize"/1GB)	
 
-	if ($VRAM -lt 5) {
+    # DEBUG set it to lt 999 etc orig lt 5 
+	if ($VRAM -lt 5) { 
 			Write-Message  "Dedicated GPU Less then 5 GB VRAM. Dedicated GPU Memory this is differnet then Shared GPU memory or GPU Memory ! We can use public Ollama servers or see FAQ for Mindcraft to setup APIs"  -Type "WARNING"
 			$Global:GPUVRAM = 0
 			(Get-WmiObject -Namespace root\CIMV2 -Class CIM_VideoController)  | Select-Object Name,Description,Caption,DeviceID,VideoMemoryType  | Format-Table -AutoSize
@@ -404,9 +342,25 @@ Function CheckGPU {
 	} else {
 	$DriverDesc = $GPUList.DriverDesc
 	Write-Message  "Dedicated GPU: $DriverDesc with $VRAM GB of VRAM"  -Type "INFO"
-	$Global:GPUVRAM = 1 # DEBUG 0
+	$Global:GPUVRAM = 1 
 	EXECheckOllama
-		}	
+		}
+
+
+
+if($Global:GPUVRAM -match "0"){
+		OllamaGape
+		$content = Get-Content -Path "$VARCD\mindcraft\mindcraft-ce\Andy.json" -Raw
+
+		# Replace placeholders with global variable values
+		$content = $content -replace 'localhost', $Global:OllamaValidIP
+		$content = $content -replace 'sweaterdog\/andy-4:q8_0', $Global:OllamaValidModel
+
+		# Write the result to Andy.orig
+		$content | Set-Content -Path "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
+
+		Write-Host "$VARCD\mindcraft\mindcraft-ce\Andy.json updated successfully  Global:OllamaValidIP: $Global:OllamaValidIP  and  OllamaValidModel: $Global:OllamaValidModel  ."
+	}
 }
 ############# CheckSDK  C:\Program Files (x86)\Windows Kits\10\Include
 function CheckSDK{
@@ -433,19 +387,11 @@ function CheckSDK{
   } else {
 	Write-Message  "Microsoft Visual Studio\2022\BuildTools found" -Type "INFO"	
   }
-}	
-############# mindcraft
-Function mindcraft {
-Write-Message  "Ending task Java"  -Type "INFO"
-Stop-process -name java -Force -ErrorAction SilentlyContinue |Out-Null
-CheckSDK
-CheckPython
-CheckGPU
-CheckGit
-CheckJava
-CheckNode
-MinecraftServer
-	
+}
+
+############# CheckMindcraft
+Function CheckMindcraft {
+
 if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft-ce" )) {
 	
 	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
@@ -497,7 +443,7 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft-ce" )) {
 	Write-Message   ".\profiles\defaults\_default.json: elbow_room to true" -Type "INFO"
 	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"elbow_room".*', '"elbow_room": false,' | sc ".\profiles\defaults\_default.json"
 	
-#################### PROFILE  survival.json
+	 
 	Write-Message   ".\profiles\defaults\survival.json: Hunting to false" -Type "INFO"
 	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"hunting".*', '"hunting": false,' | sc  ".\profiles\defaults\survival.json"
 	
@@ -509,23 +455,34 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft-ce" )) {
 	
 	Write-Message   ".\profiles\defaults\survival.json: elbow_room to true" -Type "INFO"
 	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"elbow_room".*', '"elbow_room": false,' | sc ".\profiles\defaults\survival.json"
-	
-	
-	Write-Message  ".\Andy.json: Updating for Ollama server and local TTS"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft-ce\Andy.json" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system","embedding": "ollama"' | sc  "$VARCD\mindcraft\mindcraft-ce\Andy.json"
- 
+
 	
 	}
+	
+}
+
+ 
+
+############# StartMineCraft
+function StartMineCraft {
+
+ 
+CheckSDK
+CheckPython
+CheckGit
+CheckJava
+CheckNode
+MinecraftServer
+CheckMindcraft
+CheckGPU
+
+	Write-Message  "Removing Andy memory folder $VARCD\mindcraft\mindcraft-ce\bots\Andy "  -Type "WARNING"
+ 	Remove-Item -Path "$VARCD\mindcraft\mindcraft-ce\bots\Andy" -Force -ErrorAction SilentlyContinue  -Confirm:$false -Recurse |Out-Null
+
 	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
 	New-Item -Path "$VARCD\mindcraft\mindcraft-ce\" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
 	Set-Location -Path "$VARCD\mindcraft\mindcraft-ce\" -ErrorAction SilentlyContinue |Out-Null
-	if($Global:GPUVRAM -match "0"){
-		Write-Message  ".\Andy.json: No GPU VRAM found Looking for Open Ollama server"  -Type "WARNING"
-		OllamaGapeFind
-		Write-Message  ".\Andy.json: Updating Global:OllamaValidIP: $Global:OllamaValidIP  and  OllamaValidModel: $Global:OllamaValidModel  "  -Type "INFO"
-		(Get-Content "$VARCD\Andy.json").Replace("localhost", "$Global:OllamaValidIP") | Set-Content "$VARCD\Andy.json"
-		(gc "$VARCD\mindcraft\mindcraft-ce\Andy.orig" -Raw) -replace '"model".*', '"model": { "api": "ollama", "url": "$Global:OllamaValidIP","model": "$Global:OllamaValidModel" }' | sc  "$VARCD\mindcraft\mindcraft-ce\Andy.json"
-	}
+
 
  	Write-Message  "Starting Mindcraft"  -Type "INFO"
 	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList " main.js " 
@@ -533,27 +490,107 @@ if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft-ce" )) {
  	Write-Message  "Waiting to start bot viewer server prismarine-viewer on http://localhost:3000"  -Type "INFO"
 	Start-Sleep 15
 	Start-Process -FilePath "http://localhost:3000"
+}
 	
+	
+############# OllamaGape
+function OllamaGape {
+    $cacheFile = "OllamaMonitor.json"
+
+    try {
+        if (Test-Path $cacheFile) {
+            $servers = Get-Content $cacheFile -Raw | ConvertFrom-Json
+        } else {
+            $h = @{ 'Host'='awesome-ollama-server.vercel.app';'User-Agent'='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36';'Accept'='*/*';'Referer'='https://awesome-ollama-server.vercel.app/en' }
+            $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+            $s.Cookies.Add((New-Object System.Net.Cookie('NEXT_LOCALE','en','/','awesome-ollama-server.vercel.app')))
+            $raw = (Invoke-WebRequest -Uri 'https://awesome-ollama-server.vercel.app/data.json' -Method GET -Headers $h -WebSession $s -UseBasicParsing).Content
+            $raw | Out-File -FilePath $cacheFile -Encoding utf8 -Force
+            $servers = $raw | ConvertFrom-Json
+        }
+        $servers = $servers  # NO RANDOM | Sort-Object { Get-Random }
+    } catch { throw "Error loading server list: $_" }
+
+    $checkScript = {
+        param($e, $flag)
+        if (Test-Path $flag) { return }
+        $ip = ($e.server -replace 'https?://','' ) -replace ':.*',''
+        if ([string]::IsNullOrWhiteSpace($ip)) { return }
+        $blacklist = @('152.53.81.57','123.123.123.123','91.107.206.49')
+        if ($ip -in $blacklist) { return }
+        $models = @($e.models | Where-Object { $_ -notmatch 'smollm|embed|bge|nomic|all-minilm|gemma3:latest|dolphin3:latest' })
+        if ($models.Count -eq 0) { return }
+        $uri = "http://${ip}:11434/api/chat"
+        $q   = "What's the default port for a Minecraft server?. be sure to only respond with a single word or token"
+        foreach ($m in $models) {
+            if (Test-Path $flag) { return }
+            try {
+                $body = @{ model=$m; messages=@(@{ role="user"; content=$q }); stream=$false } | ConvertTo-Json
+                $ans  = (Invoke-RestMethod -Uri $uri -TimeoutSec 10 -Method Post -Body $body -ContentType "application/json").message.content
+                if ("$ip,$m,$ans" -match "25565") {
+                    [System.IO.File]::WriteAllText($flag, "$ip,$m,$ans")
+                    return "__RESULT__:$ip,$m,$ans"
+                }
+            } catch {}
+        }
+    }
+
+    $flag = [System.IO.Path]::GetTempFileName(); Remove-Item $flag -Force
+    $jobs = @(); $queued = 0; $maxJobs = 5; $finalResult = $null
+
+    foreach ($e in $servers) {
+        if (Test-Path $flag) { break }
+        while (@(Get-Job -State Running).Count -ge $maxJobs) { Start-Sleep -Milliseconds 300; if (Test-Path $flag) { break } }
+        $queued++
+        $jobs += Start-Job -ScriptBlock $checkScript -ArgumentList $e, $flag
+    }
+
+    foreach ($job in $jobs) {
+        $null = Wait-Job -Job $job -Timeout 10
+        if ($job.State -eq 'Running') { Stop-Job $job }
+        $out = Receive-Job $job; Remove-Job $job -Force
+        if ($null -eq $finalResult -and $out -match '^__RESULT__:') {
+            $finalResult             = $out -replace '^__RESULT__:',''
+            $p                       = $finalResult -split ','
+            $Global:OllamaValidIP    = $p[0].Trim()
+            $Global:OllamaValidModel = $p[1].Trim()
+        }
+        if ($null -ne $finalResult) { break }
+    }
+
+    Get-Job | Stop-Job; Get-Job | Remove-Job -Force
+    if (Test-Path $flag) { Remove-Item $flag -Force }
+	Write-Message  "Using $Global:OllamaValidIP and $Global:OllamaValidModel "  -Type "INFO"
+    return $finalResult
 }
 
+
+
+
+############# MinecraftServer
 ############# MinecraftServer
 Function MinecraftServer {
-	Write-Message  "Ending task Java"  -Type "INFO"
-	Stop-process -name java -Force -ErrorAction SilentlyContinue |Out-Null
 
-	Write-Message  "Running MinecraftServer"  -Type "INFO"
-if (-not(Test-Path -Path "$VARCD\mindcraft\MinecraftServer" )) {
+    # Check if server.jar is already running
+    $javaProcess = Get-WmiObject Win32_Process -Filter "Name='java.exe'" | 
+                   Select-Object ProcessId, CommandLine | 
+                   Where-Object { $_.CommandLine -like "*server.jar*" }
 
-	Write-Message  "Creating $VARCD\mindcraft\MinecraftServer"  -Type "INFO"
-	New-Item -Path "$VARCD\mindcraft\MinecraftServer" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
-	Set-Location -Path "$VARCD\mindcraft\MinecraftServer"
-	
-	Write-Message  "Downloading MinecraftServer"  -Type "INFO"
-	#downloadFile "https://piston-data.mojang.com/v1/objects/59353fb40c36d304f2035d51e7d6e6baa98dc05c/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" 
-	# downloadFile "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" # 1.21.8 too new for prismarine-viewer ?
-	downloadFile "https://piston-data.mojang.com/v1/objects/6e64dcabba3c01a7271b4fa6bd898483b794c59b/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" # 1.21.6 for prismarine-viewer to work ?
-	
-	# Create and configure server.properties
+    if ($javaProcess) {
+        Write-Message "MinecraftServer (server.jar) is already running. PID: $($javaProcess.ProcessId)" -Type "WARNING"
+        return
+    }
+
+    Write-Message "Running MinecraftServer" -Type "INFO"
+
+    if (-not(Test-Path -Path "$VARCD\mindcraft\MinecraftServer")) {
+
+        Write-Message "Creating $VARCD\mindcraft\MinecraftServer" -Type "INFO"
+        New-Item -Path "$VARCD\mindcraft\MinecraftServer" -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+        Set-Location -Path "$VARCD\mindcraft\MinecraftServer"
+
+        Write-Message "Downloading MinecraftServer" -Type "INFO"
+        downloadFile "https://piston-data.mojang.com/v1/objects/6e64dcabba3c01a7271b4fa6bd898483b794c59b/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" # 1.21.6 for prismarine-viewer
 
 $properties = @"
 server-ip=0.0.0.0
@@ -561,59 +598,51 @@ server-port=25565
 online-mode=false
 eula=true
 gamemode=survival
-difficulty=peaceful # normal DEBUG peaceful
-allow-cheats=flase
+difficulty=peaceful
+allow-cheats=false
 force-gamemode=false
 enable-command-block=true
-show_bot_views: true
+show_bot_views=true
 prevent-proxy-connections=false
 view-distance=20
 pvp=true
 allow-nether=true
 bonus-chest=true
-
 "@
-$properties | Out-File "$VARCD\mindcraft\MinecraftServer\server.properties" -encoding ascii
-
-# Create eula.txt
-out-file -filepath .\eula.txt -encoding ascii -inputobject "eula=true`n"
-
-}
- 
-# Run the server
-Start-Process -FilePath "java.exe" -WorkingDirectory "$VARCD\mindcraft\MinecraftServer" -ArgumentList " -Xmx4G -jar server.jar   " -RedirectStandardOutput "server.log"   -WindowStyle hidden
-while ($true) {
-    if (Get-Content "server.log" -Tail 1 | Select-String "Done") {
-		Write-Message  "Minecraft server world loaded!"  -Type "INFO"
-		#Start-Sleep -Seconds 2
-		#Start-Process powershell -ArgumentList "-NoExit", "-Command", "Get-Content `"$VARCD\mindcraft\MinecraftServer\logs\latest.log`" -Wait -Tail 50"
-
-        return
+        $properties | Out-File "$VARCD\mindcraft\MinecraftServer\server.properties" -Encoding ascii
+        Out-File -FilePath ".\eula.txt" -Encoding ascii -InputObject "eula=true`n"
     }
-	Write-Message  "Waiting for world to load.."  -Type "INFO"
-    Start-Sleep -Seconds 4
+
+    # Start the server
+    Start-Process -FilePath "java.exe" `
+                  -WorkingDirectory "$VARCD\mindcraft\MinecraftServer" `
+                  -ArgumentList "-Xmx4G -jar server.jar" `
+                  -RedirectStandardOutput "$VARCD\mindcraft\MinecraftServer\server.log" `
+                  -WindowStyle Hidden
+
+    # Wait for world to finish loading
+    while ($true) {
+        if (Get-Content "$VARCD\mindcraft\MinecraftServer\server.log" -Tail 1 | Select-String "Done") {
+            Write-Message "Minecraft server world loaded!" -Type "INFO"
+            return
+        }
+        Write-Message "Waiting for world to load.." -Type "INFO"
+        Start-Sleep -Seconds 4
+    }
 }
-}
+
 
 ######################################################################################################################### FUNCTIONS END
 
-############# mindcraft
+############# StartMineCraft
 $Button = New-Object System.Windows.Forms.Button
 $Button.AutoSize = $true
-$Button.Text = "Mindcraft"
+$Button.Text = "StartMineCraft"
 $Button.Location = New-Object System.Drawing.Point(($hShift+0),($vShift+0))
-$Button.Add_Click({mindcraft})
+$Button.Add_Click({StartMineCraft})
 $main_form.Controls.Add($Button)
 $vShift = $vShift + 30
 
-############# mindcraftStart
-$Button = New-Object System.Windows.Forms.Button
-$Button.AutoSize = $true
-$Button.Text = "Restart Bot"
-$Button.Location = New-Object System.Drawing.Point(($hShift+0),($vShift+0))
-$Button.Add_Click({mindcraftStart})
-$main_form.Controls.Add($Button)
-$vShift = $vShift + 30
 
 ############# CMDPrompt
 $Button = New-Object System.Windows.Forms.Button
