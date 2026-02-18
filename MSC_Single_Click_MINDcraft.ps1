@@ -1,598 +1,269 @@
-param(
-    [Parameter(Mandatory=$false)]
-    [string]$Headless
-)
+param([string]$Headless)
 
-# function for messages
-#$ErrorActionPreference="Continue"
-$VerNum = 'MSC 1.7'
-$host.ui.RawUI.WindowTitle = $VerNum 
- 
-# set current directory
-Set-Location ($VARCD = (Get-Location)); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
- 
-# Setup Form
-Add-Type -assembly System.Windows.Forms
+$VerNum = 'MSC 1.8'
+$host.ui.RawUI.WindowTitle = $VerNum
+Set-Location ($VARCD = (Get-Location))
+$env:HOMEPATH = $env:USERPROFILE = $VARCD
+$env:APPDATA = "$VARCD\AppData\Roaming"
+$env:LOCALAPPDATA = "$VARCD\AppData\Local"
+$env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"
+$env:JAVA_HOME = "$VARCD\jdk"
+$env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
+
+Add-Type -Assembly System.Windows.Forms
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.AutoSize = $true
-$main_form.Text = "$VerNum"
+$main_form.Text = $VerNum
+$hShift = 0; $vShift = 0
 
-$hShift = 0
-$vShift = 0
-
-function Write-Message  {
-    <#
-    .SYNOPSIS
-        Prints	 colored messages depending on type
-    .PARAMETER TYPE
-        Type of error message to be prepended to the message and sets the color
-    .PARAMETER MESSAGE
-        Message to be output
-    #>
-    [CmdletBinding()]
-    param (
-        [string]
-        $Type,
-        
-        [string]
-        $Message
-        )
-
-if  (($TYPE) -eq  ("INFO")) { $Tag = "INFO"  ; $Color = "Green"}
-if  (($TYPE) -eq  ("WARNING")) { $Tag = "WARNING"  ; $Color = "Yellow"}
-if  (($TYPE) -eq  ("ERROR")) { $Tag = "ERROR"  ; $Color = "Red"}
-Write-Host  (Get-Date -UFormat "%m/%d:%T")$($Tag)$($Message) -ForegroundColor $Color  
-#echo "$Message"
-}
-### MAIN ###
-
-################################# FUNCTIONS
-
-############# Get-MinecraftVersion pick server.jar to use ...
-function Get-MinecraftVersion {
-    # Download version manifest
-    $manifestUrl = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
-    $manifest = Invoke-RestMethod -Uri $manifestUrl
-
-    # Create Windows Form
-    Add-Type -AssemblyName System.Windows.Forms
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Select Minecraft Version"
-    $form.Size = New-Object System.Drawing.Size(400, 500)
-    $form.StartPosition = "CenterScreen"
-
-    # Create ListBox
-    $listBox = New-Object System.Windows.Forms.ListBox
-    $listBox.Location = New-Object System.Drawing.Point(10, 10)
-    $listBox.Size = New-Object System.Drawing.Size(360, 380)
-
-    # Populate ListBox with version IDs (only numbers and dots)
-    foreach ($version in $manifest.versions) {
-        if ($version.id -match '^[\d\.]+$') {
-            [void]$listBox.Items.Add($version.id)
-        }
-    }
-
-    # Create Download Button
-    $button = New-Object System.Windows.Forms.Button
-    $button.Location = New-Object System.Drawing.Point(10, 400)
-    $button.Size = New-Object System.Drawing.Size(360, 40)
-    $button.Text = "Download Selected Version"
-    $button.Add_Click({
-        if ($listBox.SelectedItem) {
-            $selectedId = $listBox.SelectedItem
-            $selectedVersion = $manifest.versions | Where-Object { $_.id -eq $selectedId }
-
-            # Download version JSON
-            Write-Message  "Downloading latest node"  -Type "INFO"
-            $versionJson = Invoke-RestMethod -Uri $selectedVersion.url
-
-            # Download Client JAR
-            if ($versionJson.downloads.client.url) {
-				Write-Message  "Downloading client JAR..."  -Type "INFO"
-                downloadFile $versionJson.downloads.client.url "$VARCD\client.jar"
-            }
-
-            # Download Server JAR
-            if ($versionJson.downloads.server.url) {
-				Write-Message  "Downloading server JAR..."  -Type "INFO"
-                downloadFile $versionJson.downloads.server.url "$VARCD\mindcraft\MinecraftServer\server.jar"
-            }
-            $form.Close()
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("Please select a version", "Error")
-        }
-    })
-
-    # Add controls to form
-    $form.Controls.Add($listBox)
-    $form.Controls.Add($button)
-
-    # Show form
-    [void]$form.ShowDialog()
+function Write-Message([string]$Type, [string]$Message) {
+    $map = @{ INFO='Green'; WARNING='Yellow'; ERROR='Red' }
+    Write-Host "$(Get-Date -UFormat '%m/%d:%T') $Type $Message" -ForegroundColor $map[$Type]
 }
 
+function downloadFile($url, $targetFile) {
+    Write-Message INFO "Downloading $url"
+    $req = [System.Net.HttpWebRequest]::Create($url)
+    $req.Timeout = 15000
+    $resp = $req.GetResponse()
+    $rs = $resp.GetResponseStream()
+    $ts = New-Object System.IO.FileStream($targetFile, [System.IO.FileMode]::Create)
+    $buf = New-Object byte[] 10240
+    while (($n = $rs.Read($buf, 0, $buf.Length)) -gt 0) { $ts.Write($buf, 0, $n) }
+    $ts.Flush(); $ts.Dispose(); $rs.Dispose()
+    Write-Message INFO "Finished Download"
+}
 
-
-
-############# CHECK PYTHON
-Function CheckPython {
-   if (-not(Test-Path -Path "$VARCD\python" )) {
-            Write-Message  -Message  "Downloading Python nuget package" -Type "INFO"
-            downloadFile "https://www.nuget.org/api/v2/package/python" "$VARCD\python.zip"
-            New-Item -Path "$VARCD\python" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
-            Write-Message  -Message  "Extracting Python nuget package" -Type "INFO"
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            Add-Type -AssemblyName System.IO.Compression
-            [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\python.zip", "$VARCD\python")
-			Write-Message  -Message  "Updating pip" -Type "INFO"
-			Start-Process -FilePath "$VARCD\python\tools\python.exe" -WorkingDirectory "$VARCD\python\tools" -ArgumentList " -m pip install --upgrade pip " -wait -NoNewWindow
-
-New-Item -ItemType Directory -Path "$VARCD\python\tools\Scripts" -ErrorAction SilentlyContinue |Out-Null
-# DO NOT INDENT THIS PART
+function CheckPython {
+    if (Test-Path "$VARCD\python") { Write-Message WARNING "$VARCD\python already exists"; return }
+    Write-Message INFO "Downloading Python nuget package"
+    downloadFile "https://www.nuget.org/api/v2/package/python" "$VARCD\python.zip"
+    New-Item "$VARCD\python" -ItemType Directory -EA SilentlyContinue | Out-Null
+    Write-Message INFO "Extracting Python nuget package"
+    Add-Type -Assembly System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\python.zip", "$VARCD\python")
+    Write-Message INFO "Updating pip"
+    Start-Process "$VARCD\python\tools\python.exe" -WorkingDirectory "$VARCD\python\tools" -ArgumentList "-m pip install --upgrade pip" -Wait -NoNewWindow
+    New-Item "$VARCD\python\tools\Scripts" -ItemType Directory -EA SilentlyContinue | Out-Null
 $PipBatch = @'
 python -m pip %*
 '@
-$PipBatch | Out-File -Encoding Ascii -FilePath "$VARCD\python\tools\Scripts\pip.bat" -ErrorAction SilentlyContinue |Out-Null
-# DO NOT INDENT THIS PART
-
-            }
-        else {
-            Write-Message  -Message  "$VARCD\python already exists" -Type "WARNING"
-            }
-			Write-Message  -Message  "CheckPython Complete" -Type "INFO"
-}
-############# CheckNode
-Function CheckNode {
-   if (-not(Test-Path -Path "$VARCD\node" )) {
-        try {
-			Write-Message  "Downloading latest node"  -Type "INFO"
-			$downloadUri = $downloadUri = (Invoke-RestMethod -Method GET -Uri "https://nodejs.org/dist/latest/")  -split '"' -match '.*node-.*-win-x64.zip.*' | ForEach-Object {$_ -ireplace '^\/','https://nodejs.org/' } | select -first 1
-            downloadFile "$downloadUri" "$VARCD\node.zip"
-			Write-Message  "Extracting Node"  -Type "INFO"
-			Add-Type -AssemblyName System.IO.Compression.FileSystem
-            Add-Type -AssemblyName System.IO.Compression
-            [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\node.zip", "$VARCD")
-			Get-ChildItem "$VARCD\node-*"  | Rename-Item -NewName "node"
-			Write-Message  "Updating npm"  -Type "INFO"
-			Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\node" -ArgumentList " install -g npm " -wait -NoNewWindow
-			}
-                catch {
-                    throw $_.Exception.Message
-            }
-            }
-        else {
-			Write-Message  "$VARCD\node already Exist"  -Type "WARNING"
-			}
+    $PipBatch | Out-File -Encoding Ascii "$VARCD\python\tools\Scripts\pip.bat" -EA SilentlyContinue | Out-Null
+    Write-Message INFO "CheckPython Complete"
 }
 
-############# downloadFile
-function downloadFile($url, $targetFile)
-{
-	Write-Message  -Message "Downloading $url" -Type "INFO"
-    $uri = New-Object "System.Uri" "$url"
-    $request = [System.Net.HttpWebRequest]::Create($uri)
-    $request.set_Timeout(15000) #15 second timeout
-    $response = $request.GetResponse()
-    $totalLength = [System.Math]::Floor($response.get_ContentLength()/1024)
-    $responseStream = $response.GetResponseStream()
-    $targetStream = New-Object -TypeName System.IO.FileStream -ArgumentList $targetFile, Create
-    $buffer = new-object byte[] 10KB
-    $count = $responseStream.Read($buffer,0,$buffer.length)
-    $downloadedBytes = $count
-    while ($count -gt 0)
-    {
-        $targetStream.Write($buffer, 0, $count)
-        $count = $responseStream.Read($buffer,0,$buffer.length)
-    }
-        $downloadedBytes = $downloadedBytes + $count
-	Write-Message  -Message "Finished Download" -Type "INFO"
-    $targetStream.Flush()
-    $targetStream.Close()
-    $targetStream.Dispose()
-    $responseStream.Dispose()
-}
-
-############# CHECK JAVA
-Function CheckJava {
-Write-Message  "Checking for Java"  -Type "INFO"
-   if (-not(Test-Path -Path "$VARCD\jdk" )) {
-            Write-Message  "Downloading Java"  -Type "INFO"
-            downloadFile "https://download.java.net/java/GA/jdk24/1f9ff9062db4449d8ca828c504ffae90/36/GPL/openjdk-24_windows-x64_bin.zip" "$VARCD\jdk.zip"
-            Write-Message  "Extracting Java"  -Type "INFO"
-			Add-Type -AssemblyName System.IO.Compression.FileSystem
-            Add-Type -AssemblyName System.IO.Compression
-            [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\jdk.zip", "$VARCD")
-			Get-ChildItem "$VARCD\jdk-*"  | Rename-Item -NewName { $_.Name -replace '-.*','' }
-            $env:JAVA_HOME = "$VARCD\jdk"
-            }
-        else {
-            Write-Message  "$VARCD\openjdk.zip already exists"  -Type "WARNING"
-            }
-}
-
-############# CMDPrompt
-Function CMDPrompt {
-	CheckJava
-	CheckGit
-	CheckNode
-	Start-Process -FilePath "cmd" -WorkingDirectory "$VARCD"
-}
-
-############# CHECK CheckGit
-Function CheckGit {
-	 Write-Message  "Checking Git"  -Type "INFO"
-   if (-not(Test-Path -Path "$VARCD\PortableGit" )) {
-        try {
-            Write-Message  "Downloading Git"  -Type "INFO"
-
-            $downloadUri = ((Invoke-RestMethod -Method GET -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest").assets | Where-Object name -like *PortableGit*64*.exe ).browser_download_url | select -first 1
-            downloadFile "$downloadUri" "$VARCD\git7zsfx.exe"
-            Start-Process -FilePath "$VARCD\git7zsfx.exe" -WorkingDirectory "$VARCD\" -ArgumentList " -o`"$VARCD\PortableGit`" -y " -wait -NoNewWindow}
-                catch {
-                    throw $_.Exception.Message
-                }
-            }
-        else {
-            Write-Message  "$VARCD\Git already exists"  -Type "WARNING"
-            }
-}
-
-############# UpdateJAMBO
-Function UpdateJAMBO {
-$JAMBOPATH = Get-ScriptPathFromCallStack
-Write-Message  "Downloading latest JAMBOREE to $JAMBOPATH"  -Type "INFO"
-Invoke-WebRequest -Method GET -Uri 'https://github.com/freeload101/MSC_Single_Click_MINDcraft/raw/refs/heads/main/MSC_Single_Click_MINDcraft.ps1' -OutFile "$JAMBOPATH"
-Write-Message  "Restarting"  -Type "INFO"
-Start-Sleep -Seconds 1
-Set-Variable -Name ErrorActionPreference -Value SilentlyContinue
-
-Start-Process -FilePath "powershell" -WorkingDirectory "$VARCD\" -ArgumentList " -File `"$JAMBOPATH`" "  -ErrorAction SilentlyContinue
-#exit 0
-}
-
-############# EXECheckOllama
-function EXECheckOllama{
-		Write-Message   "Setting Environment Variables for Ollamma"  -Type "INFO"
-		$env:OLLAMA_HOST = "0.0.0.0"
-		# $env:OLLAMA_NUM_PARALLEL = 1
-		# $env:OLLAMA_MAX_LOADED_MODELS = 3
-		# $env:OLLAMA_KEEP_ALIVE = "60m"
-		$env:OLLAMA_KEEP_ALIVE = "-1"
-		$env:OLLAMA_FLASH_ATTENTION = "1" 
-		$env:OLLAMA_MODELS = "$VARCD\Ollama\.ollama"
-		
-  if (-not(Test-Path -Path "$VARCD\Ollama" )) {
-	 
-		Stop-process -name ollama -Force -ErrorAction SilentlyContinue |Out-Null
-		Stop-process -name "ollama" -Force -ErrorAction SilentlyContinue |Out-Null
-		
-		Write-Message   "Downloading Latetst Ollama binary from github"  -Type "INFO"
-		$downloadUri = ((Invoke-RestMethod -Method GET -Uri "https://api.github.com/repos/ollama/ollama/releases/latest").assets | Where-Object name -like ollama-windows-amd64.zip ).browser_download_url
-		downloadFile  $downloadUri "$VARCD\ollama-windows-amd64.zip"
-		Write-Message  "Extracting ollama-windows-amd64.zip"  -Type "INFO"
-		Add-Type -AssemblyName System.IO.Compression.FileSystem
-		Add-Type -AssemblyName System.IO.Compression
-		[System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\ollama-windows-amd64.zip", "$VARCD\Ollama\")
-		
-	
-	
-		# Write-Message   "Attempting to set System.Environment Variables for Ollama ( Run these lines as admin if you want to run Ollama outside of this script  )"  -Type "WARNING"
-		# Run the following as admin to get env outside of this script!
-		# [System.Environment]::SetEnvironmentVariable("OLLAMA_MODELS", "$VARCD\Ollama\.ollama", [System.EnvironmentVariableTarget]::Machine)
-		# [System.Environment]::SetEnvironmentVariable("OLLAMA_HOST", "0.0.0.0", [System.EnvironmentVariableTarget]::Machine)
-		# [System.Environment]::SetEnvironmentVariable("OLLAMA_KEEP_ALIVE", "-1", [System.EnvironmentVariableTarget]::Machine)
-		# [System.Environment]::SetEnvironmentVariable("OLLAMA_FLASH_ATTENTION", "1", [System.EnvironmentVariableTarget]::Machine)
-		
-		Write-Message   "Starting Ollama ...."  -Type "INFO"
-		Stop-process -name ollama -Force -ErrorAction SilentlyContinue |Out-Null
-		Stop-process -name "ollama" -Force -ErrorAction SilentlyContinue |Out-Null
-		Start-Sleep -Seconds 1
-		Start-Process -FilePath "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " serve"
-		while(!(Get-Process "ollama" -ErrorAction SilentlyContinue)){Start-Sleep -Seconds 5};Write-Message   "Waiting for Ollama to start"  -Type "INFO"
-		Start-Sleep -Seconds 10
-  		Remove-Item -Path "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -ErrorAction SilentlyContinue |Out-Null
-		
-		
-		Write-Message   "Downloading nomic-embed-text Ollama model"  -Type "INFO"
-		Start-Process -FilePath "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " pull nomic-embed-text" -wait -NoNewWindow
-		Write-Message   "Downloading sweaterdog/andy-4:q8_0 Ollama model"  -Type "INFO"
-		Start-Process -FilePath "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " pull sweaterdog/andy-4:q8_0"  -wait -NoNewWindow
-		Start-Process -FilePath "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " list "  -wait -NoNewWindow
- 
-		} else {
-		
-		Write-Message   "Starting Ollama ...."  -Type "INFO"
-		Stop-process -name ollama -Force -ErrorAction SilentlyContinue |Out-Null
-		Stop-process -name "ollama" -Force -ErrorAction SilentlyContinue |Out-Null
-		Start-Sleep -Seconds 1
-		Start-Process -FilePath "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList " serve"
-		while(!(Get-Process "ollama" -ErrorAction SilentlyContinue)){Start-Sleep -Seconds 5};Write-Message   "Waiting for Ollama to start"  -Type "INFO"
-		Start-Sleep -Seconds 2
-  		Remove-Item -Path "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -ErrorAction SilentlyContinue |Out-Null
- 
-		}
-}
- 
- 
-############# CheckGPU
-Function CheckGPU {
-	
-	Write-Message  "Writing out $VARCD\mindcraft\mindcraft-ce\Andy.json Template"  -Type "INFO"
-$content = @'
-{
-	"name": "andy",
-
-	"model": { "api": "ollama", "url": "http://localhost:11434","model": "sweaterdog/andy-4:q8_0" },"speak_model": "system"
-
-}
-'@
-	$content | Set-Content -Path "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline 
-
-
-	$GPUList = Get-ItemProperty -Path "HKLM:\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0*"   | Where-Object {$_."HardwareInformation.qwMemorySize" -gt 0}  	
-	$VRAM = [math]::round($GPUList."HardwareInformation.qwMemorySize"/1GB)	
-
-    # DEBUG set it to lt 999 etc orig lt 5 
-	if ($VRAM -lt 5) { 
-			Write-Message  "Dedicated GPU Less then 5 GB VRAM. Dedicated GPU Memory this is differnet then Shared GPU memory or GPU Memory ! We can use public Ollama servers or see FAQ for Mindcraft to setup APIs"  -Type "WARNING"
-			$Global:GPUVRAM = 0
-			(Get-WmiObject -Namespace root\CIMV2 -Class CIM_VideoController)  | Select-Object Name,Description,Caption,DeviceID,VideoMemoryType  | Format-Table -AutoSize
-			
-	} else {
-	$DriverDesc = $GPUList.DriverDesc
-	Write-Message  "Dedicated GPU: $DriverDesc with $VRAM GB of VRAM"  -Type "INFO"
-	$Global:GPUVRAM = 1 
-	EXECheckOllama
-		}
-
-
-
-if($Global:GPUVRAM -match "0"){
-		OllamaGape
-		$content = Get-Content -Path "$VARCD\mindcraft\mindcraft-ce\Andy.json" -Raw
-
-		# Replace placeholders with global variable values
-		$content = $content -replace 'localhost', $Global:OllamaValidIP
-		$content = $content -replace 'sweaterdog\/andy-4:q8_0', $Global:OllamaValidModel
-
-		# Write the result to Andy.orig
-		$content | Set-Content -Path "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
-
-		Write-Host "$VARCD\mindcraft\mindcraft-ce\Andy.json updated successfully  Global:OllamaValidIP: $Global:OllamaValidIP  and  OllamaValidModel: $Global:OllamaValidModel  ."
-	}
-}
-############# CheckSDK  C:\Program Files (x86)\Windows Kits\10\Include
-function CheckSDK{
-	Write-Message  "Checking for C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"  -Type "INFO"
-  if (-not(Test-Path -Path "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe" )) {
-		
-	New-Item -Path "$VARCD\AppData\Local\Temp" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null 
-	New-Item -Path "$VARCD\AppData\Roaming" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null 
-	New-Item -Path  "$VARCD\AppData\Local" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null 
-	 
-	Write-Message  "Installing Microsoft Visual Studio\2022\BuildTools ( This will take 5-20 min! ) "  -Type "INFO"
-	Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile "$VARCD\vs_buildtools.exe"
-			Start-Process -FilePath "$VARCD\vs_buildtools.exe"    -ArgumentList @(
-				"--quiet",
-				"--wait", 
-				"--norestart",
-				"--nocache",
-				"--add", "Microsoft.VisualStudio.Workload.VCTools",
-				"--add", "Microsoft.Component.MSBuild",
-				"--add", "Microsoft.VisualStudio.Component.Roslyn.Compiler",
-				"--includeRecommended"
-			) -Wait
-		Write-Message  "Microsoft Visual Studio\2022\BuildTools Complete!" -Type "INFO"		
-  } else {
-	Write-Message  "Microsoft Visual Studio\2022\BuildTools found" -Type "INFO"	
-  }
-}
-
-############# CheckMindcraft
-Function CheckMindcraft {
-
-if (-not(Test-Path -Path "$VARCD\mindcraft\mindcraft-ce" )) {
-	
-	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
-	New-Item -Path "$VARCD\mindcraft" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
-	
-	Write-Message  "Running git clone https://github.com/mindcraft-ce/mindcraft-ce.git "  -Type "INFO"
-	Start-Process -FilePath "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList " clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`" " -wait -NoNewWindow
-	Set-Location -Path "$VARCD\mindcraft\mindcraft-ce\" -ErrorAction SilentlyContinue |Out-Null
-	
-	
-	Write-Message  "Installing mindcraft. This may take a while..."  -Type "INFO"
-	Start-Process -FilePath "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce\" -ArgumentList " install --progress=true --loglevel=info " -NoNewWindow   -RedirectStandardOutput RedirectStandardOutput.txt -RedirectStandardError RedirectStandardError.txt
-	Start-Sleep -Seconds 5
-	
-	Start-Process powershell -ArgumentList "-NoExit", "-Command", "& {Get-Content '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt' -Wait}"
-    
-	while(!(Select-String -Path "RedirectStandardOutput.txt" -Pattern "patch-package finished" -Quiet)){Start-Sleep -Seconds 10}
-	Write-Message  "Installing mindcraft Complete!"  -Type "INFO"
-
-	Write-Message   "Settings.js: render_bot_view to true bot viewer server prismarine-viewer on http://localhost:3000" -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"render_bot_view".*', '"render_bot_view": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
-	
-	Write-Message  "Settings.js: Replace the minecraft port with common Minecraft port"  -Type "INFO"
-	(Get-Content "$VARCD\mindcraft\mindcraft-ce\settings.js").Replace("55916", "25565") | Set-Content "$VARCD\mindcraft\mindcraft-ce\settings.js"
-	
-	Write-Message  "Settings.js: Replace the Mindcraft port with less common port I have stuff runnning on 8080 so change to 8881"  -Type "INFO"
-	(Get-Content "$VARCD\mindcraft\mindcraft-ce\settings.js").Replace("8080", "8881") | Set-Content "$VARCD\mindcraft\mindcraft-ce\settings.js" 
- 
-	Write-Message  ".\Settings.js: Enableing TTS"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"speak".*', '"speak": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
-	 
-	Write-Message  ".\Settings.js: Enableing Vison"  -Type "INFO"
-	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"allow_vision".*', '"allow_vision": true,' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
-	(gc "$VARCD\mindcraft\mindcraft-ce\settings.js" -Raw) -replace '"vision_mode".*', '"vision_mode": "always",' | sc  "$VARCD\mindcraft\mindcraft-ce\settings.js"
-
-	Write-Message  "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js: Replace the Mindcraft server port with 8881 "  -Type "INFO"
-	(Get-Content "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js").Replace("8080", "8881") | Set-Content "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js"
-
-	#################### PROFILE  _default.json
-	Write-Message   ".\profiles\defaults\_default.json: Hunting to false" -Type "INFO"
-	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"hunting".*', '"hunting": false,' | sc  ".\profiles\defaults\_default.json"
-	
-	Write-Message   ".\profiles\defaults\_default.json: cowardice to true" -Type "INFO"
-	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"cowardice".*', '"cowardice": true,' | sc ".\profiles\defaults\_default.json"
-	
-	Write-Message   ".\profiles\defaults\_default.json: item_collecting to false" -Type "INFO"
-	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"item_collecting".*', '"item_collecting": false,' | sc ".\profiles\defaults\_default.json"
-	
-	Write-Message   ".\profiles\defaults\_default.json: elbow_room to true" -Type "INFO"
-	(gc ".\profiles\defaults\_default.json" -Raw) -replace '"elbow_room".*', '"elbow_room": false,' | sc ".\profiles\defaults\_default.json"
-	
-	 
-	Write-Message   ".\profiles\defaults\survival.json: Hunting to false" -Type "INFO"
-	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"hunting".*', '"hunting": false,' | sc  ".\profiles\defaults\survival.json"
-	
-	Write-Message   ".\profiles\defaults\survival.json: cowardice to true" -Type "INFO"
-	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"cowardice".*', '"cowardice": true,' | sc ".\profiles\defaults\survival.json"
-	
-	Write-Message   ".\profiles\defaults\survival.json: item_collecting to false" -Type "INFO"
-	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"item_collecting".*', '"item_collecting": false,' | sc ".\profiles\defaults\survival.json"
-	
-	Write-Message   ".\profiles\defaults\survival.json: elbow_room to true" -Type "INFO"
-	(gc ".\profiles\defaults\survival.json" -Raw) -replace '"elbow_room".*', '"elbow_room": false,' | sc ".\profiles\defaults\survival.json"
-
-	
-	}
-	
-}
-
- 
-
-############# StartMineCraft
-function StartMineCraft {
-
- 
-CheckSDK
-CheckPython
-CheckGit
-CheckJava
-CheckNode
-MinecraftServer
-CheckMindcraft
-CheckGPU
-
-	Write-Message  "Removing Andy memory folder $VARCD\mindcraft\mindcraft-ce\bots\Andy "  -Type "WARNING"
- 	Remove-Item -Path "$VARCD\mindcraft\mindcraft-ce\bots\Andy" -Force -ErrorAction SilentlyContinue  -Confirm:$false -Recurse |Out-Null
-
-	Write-Message  "Changing working directory to $VARCD\mindcraft"  -Type "INFO"
-	New-Item -Path "$VARCD\mindcraft\mindcraft-ce\" -ItemType Directory  -ErrorAction SilentlyContinue |Out-Null
-	Set-Location -Path "$VARCD\mindcraft\mindcraft-ce\" -ErrorAction SilentlyContinue |Out-Null
-
-
- 	Write-Message  "Starting Mindcraft"  -Type "INFO"
-	Start-Process -FilePath "$VARCD\node\node.exe" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList " main.js " 
- 
- 	Write-Message  "Waiting to start bot viewer server prismarine-viewer on http://localhost:3000"  -Type "INFO"
-	Start-Sleep 15
-	Start-Process -FilePath "http://localhost:3000"
-}
-	
-	
-############# OllamaGape
-function OllamaGape {
-    $cacheFile = "OllamaMonitor.json"
-
+function CheckNode {
+    if (Test-Path "$VARCD\node") { Write-Message WARNING "$VARCD\node already exists"; return }
     try {
-        if (Test-Path $cacheFile) {
-            $servers = Get-Content $cacheFile -Raw | ConvertFrom-Json
-        } else {
-            $h = @{ 'Host'='awesome-ollama-server.vercel.app';'User-Agent'='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36';'Accept'='*/*';'Referer'='https://awesome-ollama-server.vercel.app/en' }
-            $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-            $s.Cookies.Add((New-Object System.Net.Cookie('NEXT_LOCALE','en','/','awesome-ollama-server.vercel.app')))
-            $raw = (Invoke-WebRequest -Uri 'https://awesome-ollama-server.vercel.app/data.json' -Method GET -Headers $h -WebSession $s -UseBasicParsing).Content
-            $raw | Out-File -FilePath $cacheFile -Encoding utf8 -Force
-            $servers = $raw | ConvertFrom-Json
-        }
-        $servers = $servers  # NO RANDOM | Sort-Object { Get-Random }
-    } catch { throw "Error loading server list: $_" }
-
-    $checkScript = {
-        param($e, $flag)
-        if (Test-Path $flag) { return }
-        $ip = ($e.server -replace 'https?://','' ) -replace ':.*',''
-        if ([string]::IsNullOrWhiteSpace($ip)) { return }
-        $blacklist = @('152.53.81.57','123.123.123.123','91.107.206.49')
-        if ($ip -in $blacklist) { return }
-        $models = @($e.models | Where-Object { $_ -notmatch 'smollm|embed|bge|nomic|all-minilm|gemma3:latest|dolphin3:latest' })
-        if ($models.Count -eq 0) { return }
-        $uri = "http://${ip}:11434/api/chat"
-        $q   = "What's the default port for a Minecraft server?. be sure to only respond with a single word or token"
-        foreach ($m in $models) {
-            if (Test-Path $flag) { return }
-            try {
-                $body = @{ model=$m; messages=@(@{ role="user"; content=$q }); stream=$false } | ConvertTo-Json
-                $ans  = (Invoke-RestMethod -Uri $uri -TimeoutSec 10 -Method Post -Body $body -ContentType "application/json").message.content
-                if ("$ip,$m,$ans" -match "25565") {
-                    [System.IO.File]::WriteAllText($flag, "$ip,$m,$ans")
-                    return "__RESULT__:$ip,$m,$ans"
-                }
-            } catch {}
-        }
-    }
-
-    $flag = [System.IO.Path]::GetTempFileName(); Remove-Item $flag -Force
-    $jobs = @(); $queued = 0; $maxJobs = 5; $finalResult = $null
-
-    foreach ($e in $servers) {
-        if (Test-Path $flag) { break }
-        while (@(Get-Job -State Running).Count -ge $maxJobs) { Start-Sleep -Milliseconds 300; if (Test-Path $flag) { break } }
-        $queued++
-        $jobs += Start-Job -ScriptBlock $checkScript -ArgumentList $e, $flag
-    }
-
-    foreach ($job in $jobs) {
-        $null = Wait-Job -Job $job -Timeout 10
-        if ($job.State -eq 'Running') { Stop-Job $job }
-        $out = Receive-Job $job; Remove-Job $job -Force
-        if ($null -eq $finalResult -and $out -match '^__RESULT__:') {
-            $finalResult             = $out -replace '^__RESULT__:',''
-            $p                       = $finalResult -split ','
-            $Global:OllamaValidIP    = $p[0].Trim()
-            $Global:OllamaValidModel = $p[1].Trim()
-        }
-        if ($null -ne $finalResult) { break }
-    }
-
-    Get-Job | Stop-Job; Get-Job | Remove-Job -Force
-    if (Test-Path $flag) { Remove-Item $flag -Force }
-	Write-Message  "Using $Global:OllamaValidIP and $Global:OllamaValidModel "  -Type "INFO"
-    return $finalResult
+        Write-Message INFO "Downloading latest Node"
+        $uri = (Invoke-RestMethod -Uri "https://nodejs.org/dist/latest/") -split '"' -match '.*node-.*-win-x64\.zip.*' |
+               ForEach-Object { $_ -ireplace '^\/','https://nodejs.org/' } | Select-Object -First 1
+        downloadFile $uri "$VARCD\node.zip"
+        Write-Message INFO "Extracting Node"
+        Add-Type -Assembly System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\node.zip", "$VARCD")
+        Get-ChildItem "$VARCD\node-*" | Rename-Item -NewName "node"
+        Write-Message INFO "Updating npm"
+        Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\node" -ArgumentList "install -g npm" -Wait -NoNewWindow
+    } catch { throw $_.Exception.Message }
 }
 
+function CheckJava {
+    Write-Message INFO "Checking for Java"
+    if (Test-Path "$VARCD\jdk") { Write-Message WARNING "$VARCD\jdk already exists"; return }
+    Write-Message INFO "Downloading Java"
+    downloadFile "https://download.java.net/java/GA/jdk24/1f9ff9062db4449d8ca828c504ffae90/36/GPL/openjdk-24_windows-x64_bin.zip" "$VARCD\jdk.zip"
+    Write-Message INFO "Extracting Java"
+    Add-Type -Assembly System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\jdk.zip", "$VARCD")
+    Get-ChildItem "$VARCD\jdk-*" | Rename-Item -NewName { $_.Name -replace '-.*','' }
+    $env:JAVA_HOME = "$VARCD\jdk"
+}
 
+function CheckGit {
+    Write-Message INFO "Checking Git"
+    if (Test-Path "$VARCD\PortableGit") { Write-Message WARNING "$VARCD\Git already exists"; return }
+    try {
+        Write-Message INFO "Downloading Git"
+        $uri = ((Invoke-RestMethod -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest").assets |
+                Where-Object name -like '*PortableGit*64*.exe').browser_download_url | Select-Object -First 1
+        downloadFile $uri "$VARCD\git7zsfx.exe"
+        Start-Process "$VARCD\git7zsfx.exe" -WorkingDirectory "$VARCD\" -ArgumentList "-o`"$VARCD\PortableGit`" -y" -Wait -NoNewWindow
+    } catch { throw $_.Exception.Message }
+}
 
+function CMDPrompt {
+    CheckJava; CheckGit; CheckNode
+    Start-Process cmd -WorkingDirectory "$VARCD"
+}
 
-############# MinecraftServer
-############# MinecraftServer
-Function MinecraftServer {
+function Get-MinecraftVersion {
+    $manifest = Invoke-RestMethod -Uri "https://launchermeta.mojang.com/mc/game/version_manifest.json"
+    Add-Type -Assembly System.Windows.Forms
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Select Minecraft Version"
+    $form.Size = New-Object System.Drawing.Size(400,500)
+    $form.StartPosition = "CenterScreen"
+    $lb = New-Object System.Windows.Forms.ListBox
+    $lb.Location = New-Object System.Drawing.Point(10,10)
+    $lb.Size = New-Object System.Drawing.Size(360,380)
+    $manifest.versions | Where-Object { $_.id -match '^[\d\.]+$' } | ForEach-Object { [void]$lb.Items.Add($_.id) }
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.Location = New-Object System.Drawing.Point(10,400)
+    $btn.Size = New-Object System.Drawing.Size(360,40)
+    $btn.Text = "Download Selected Version"
+    $btn.Add_Click({
+        if (-not $lb.SelectedItem) { [System.Windows.Forms.MessageBox]::Show("Please select a version","Error"); return }
+        $ver = $manifest.versions | Where-Object id -eq $lb.SelectedItem
+        $vj  = Invoke-RestMethod -Uri $ver.url
+        if ($vj.downloads.client.url) { Write-Message INFO "Downloading client JAR..."; downloadFile $vj.downloads.client.url "$VARCD\client.jar" }
+        if ($vj.downloads.server.url) { Write-Message INFO "Downloading server JAR..."; downloadFile $vj.downloads.server.url "$VARCD\mindcraft\MinecraftServer\server.jar" }
+        $form.Close()
+    })
+    $form.Controls.AddRange(@($lb,$btn))
+    [void]$form.ShowDialog()
+}
 
-    # Check if server.jar is already running
-    $javaProcess = Get-WmiObject Win32_Process -Filter "Name='java.exe'" | 
-                   Select-Object ProcessId, CommandLine | 
-                   Where-Object { $_.CommandLine -like "*server.jar*" }
+function UpdateJAMBO {
+    $path = $PSCommandPath
+    Write-Message INFO "Downloading latest update to $path"
+    Invoke-WebRequest -Uri 'https://github.com/freeload101/MSC_Single_Click_MINDcraft/raw/refs/heads/main/MSC_Single_Click_MINDcraft.ps1' -OutFile $path
+    Write-Message INFO "Restarting"
+    Start-Sleep 1
+    Start-Process powershell -WorkingDirectory "$VARCD\" -ArgumentList "-File `"$path`"" -EA SilentlyContinue
+}
 
-    if ($javaProcess) {
-        Write-Message "MinecraftServer (server.jar) is already running. PID: $($javaProcess.ProcessId)" -Type "WARNING"
-        return
+function EXECheckOllama {
+    Write-Message INFO "Setting Ollama environment variables"
+    $env:OLLAMA_HOST = "0.0.0.0"; $env:OLLAMA_KEEP_ALIVE = "-1"; $env:OLLAMA_FLASH_ATTENTION = "1"
+    $env:OLLAMA_MODELS = "$VARCD\Ollama\.ollama"
+    Stop-Process -Name ollama -Force -EA SilentlyContinue | Out-Null
+
+    if (-not (Test-Path "$VARCD\Ollama")) {
+        Write-Message INFO "Downloading latest Ollama"
+        $uri = ((Invoke-RestMethod -Uri "https://api.github.com/repos/ollama/ollama/releases/latest").assets |
+                Where-Object name -like 'ollama-windows-amd64.zip').browser_download_url
+        downloadFile $uri "$VARCD\ollama-windows-amd64.zip"
+        Write-Message INFO "Extracting Ollama"
+        Add-Type -Assembly System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\ollama-windows-amd64.zip","$VARCD\Ollama\")
+        Write-Message INFO "Starting Ollama"
+        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "serve"
+        while (!(Get-Process ollama -EA SilentlyContinue)) { Start-Sleep 5; Write-Message INFO "Waiting for Ollama..." }
+        Start-Sleep 10
+        Remove-Item "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -EA SilentlyContinue | Out-Null
+        Write-Message INFO "Pulling nomic-embed-text"
+        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "pull nomic-embed-text" -Wait -NoNewWindow
+        Write-Message INFO "Pulling sweaterdog/andy-4:q8_0"
+        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "pull sweaterdog/andy-4:q8_0" -Wait -NoNewWindow
+    } else {
+        Write-Message INFO "Starting Ollama"
+        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "serve"
+        while (!(Get-Process ollama -EA SilentlyContinue)) { Start-Sleep 5; Write-Message INFO "Waiting for Ollama..." }
+        Start-Sleep 2
+        Remove-Item "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -EA SilentlyContinue | Out-Null
+    }
+}
+
+function CheckGPU {
+    Write-Message INFO "Writing Andy.json template"
+    @'
+{"name":"andy","model":{"api":"ollama","url":"http://localhost:11434","model":"sweaterdog/andy-4:q8_0"},"speak_model":"system"}
+'@ | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
+
+    $gpu  = Get-ItemProperty "HKLM:\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0*" |
+            Where-Object { $_."HardwareInformation.qwMemorySize" -gt 0 }
+    $VRAM = [math]::Round($gpu."HardwareInformation.qwMemorySize" / 1GB)
+
+    if ($VRAM -lt 5999) {
+        Write-Message WARNING "GPU VRAM < 5 GB. Using public Ollama server."
+        $Global:GPUVRAM = 0
+        Get-WmiObject -Class CIM_VideoController | Select-Object Name,Description,DeviceID,VideoMemoryType | Format-Table -AutoSize
+    } else {
+        Write-Message INFO "GPU: $($gpu.DriverDesc) with $VRAM GB VRAM"
+        $Global:GPUVRAM = 1
+        EXECheckOllama
     }
 
-    Write-Message "Running MinecraftServer" -Type "INFO"
+    if ($Global:GPUVRAM -eq 0) {
+        OllamaGape
+        $c = (Get-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -Raw) `
+             -replace 'localhost', $Global:OllamaValidIP `
+             -replace 'sweaterdog\/andy-4:q8_0', $Global:OllamaValidModel
+        $c | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
+        Write-Message INFO "Andy.json updated: IP=$Global:OllamaValidIP Model=$Global:OllamaValidModel"
+    }
+}
 
-    if (-not(Test-Path -Path "$VARCD\mindcraft\MinecraftServer")) {
+function CheckSDK {
+    $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+    if (Test-Path $msbuild) { Write-Message INFO "VS BuildTools found"; return }
+    @("$VARCD\AppData\Local\Temp","$VARCD\AppData\Roaming","$VARCD\AppData\Local") |
+        ForEach-Object { New-Item $_ -ItemType Directory -EA SilentlyContinue | Out-Null }
+    Write-Message INFO "Installing VS 2022 BuildTools (5-20 min)..."
+    Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile "$VARCD\vs_buildtools.exe"
+    Start-Process "$VARCD\vs_buildtools.exe" -ArgumentList @(
+        "--quiet","--wait","--norestart","--nocache",
+        "--add","Microsoft.VisualStudio.Workload.VCTools",
+        "--add","Microsoft.Component.MSBuild",
+        "--add","Microsoft.VisualStudio.Component.Roslyn.Compiler",
+        "--includeRecommended"
+    ) -Wait
+    Write-Message INFO "VS BuildTools install complete"
+}
 
-        Write-Message "Creating $VARCD\mindcraft\MinecraftServer" -Type "INFO"
-        New-Item -Path "$VARCD\mindcraft\MinecraftServer" -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-        Set-Location -Path "$VARCD\mindcraft\MinecraftServer"
+function CheckMindcraft {
+    if (Test-Path "$VARCD\mindcraft\mindcraft-ce") { return }
+    Write-Message INFO "Cloning mindcraft-ce"
+    New-Item "$VARCD\mindcraft" -ItemType Directory -EA SilentlyContinue | Out-Null
+    Start-Process "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList "clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`"" -Wait -NoNewWindow
+    Set-Location "$VARCD\mindcraft\mindcraft-ce"
+    Write-Message INFO "Running npm install..."
+    Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "install --progress=true --loglevel=info" -NoNewWindow -RedirectStandardOutput RedirectStandardOutput.txt -RedirectStandardError RedirectStandardError.txt
+    Start-Sleep 5
+    Start-Process powershell -ArgumentList "-NoExit","-Command","& { Get-Content '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt' -Wait }"
+    while (!(Select-String -Path RedirectStandardOutput.txt -Pattern "patch-package finished" -Quiet)) { Start-Sleep 10 }
+    Write-Message INFO "npm install complete"
 
-        Write-Message "Downloading MinecraftServer" -Type "INFO"
-        downloadFile "https://piston-data.mojang.com/v1/objects/6e64dcabba3c01a7271b4fa6bd898483b794c59b/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar" # 1.21.6 for prismarine-viewer
+    # Patch settings.js
+    $sjs = "$VARCD\mindcraft\mindcraft-ce\settings.js"
+    (Get-Content $sjs -Raw) -replace '"render_bot_view".*','"render_bot_view": true,' |
+        Set-Content $sjs
+    (Get-Content $sjs).Replace("55916","25565").Replace("8080","8881") | Set-Content $sjs
+    (Get-Content $sjs -Raw) -replace '"speak".*','"speak": true,' |
+        Set-Content $sjs
+    (Get-Content $sjs -Raw) -replace '"allow_vision".*','"allow_vision": true,' |
+        Set-Content $sjs
+    (Get-Content $sjs -Raw) -replace '"vision_mode".*','"vision_mode": "always",' |
+        Set-Content $sjs
 
-$properties = @"
+    # Patch mindcraft.js
+    $mjs = "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js"
+    (Get-Content $mjs).Replace("8080","8881") | Set-Content $mjs
+
+    # Patch profile JSONs
+    foreach ($profile in @(".\profiles\defaults\_default.json",".\profiles\defaults\survival.json")) {
+        $raw = Get-Content $profile -Raw
+        $raw = $raw -replace '"hunting".*','"hunting": false,' `
+                    -replace '"cowardice".*','"cowardice": true,' `
+                    -replace '"item_collecting".*','"item_collecting": false,' `
+                    -replace '"elbow_room".*','"elbow_room": false,'
+        $raw | Set-Content $profile
+    }
+}
+
+function MinecraftServer {
+    $running = Get-WmiObject Win32_Process -Filter "Name='java.exe'" |
+               Where-Object CommandLine -like "*server.jar*"
+    if ($running) { Write-Message WARNING "server.jar already running PID: $($running.ProcessId)"; return }
+    Write-Message INFO "Starting MinecraftServer"
+
+    if (-not (Test-Path "$VARCD\mindcraft\MinecraftServer")) {
+        New-Item "$VARCD\mindcraft\MinecraftServer" -ItemType Directory -EA SilentlyContinue | Out-Null
+        Set-Location "$VARCD\mindcraft\MinecraftServer"
+        Write-Message INFO "Downloading server.jar"
+        downloadFile "https://piston-data.mojang.com/v1/objects/6e64dcabba3c01a7271b4fa6bd898483b794c59b/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar"
+@"
 server-ip=0.0.0.0
 server-port=25565
 online-mode=false
@@ -608,71 +279,117 @@ view-distance=20
 pvp=true
 allow-nether=true
 bonus-chest=true
-"@
-        $properties | Out-File "$VARCD\mindcraft\MinecraftServer\server.properties" -Encoding ascii
-        Out-File -FilePath ".\eula.txt" -Encoding ascii -InputObject "eula=true`n"
+"@ | Out-File "$VARCD\mindcraft\MinecraftServer\server.properties" -Encoding ascii
+        "eula=true`n" | Out-File ".\eula.txt" -Encoding ascii
     }
 
-    # Start the server
-    Start-Process -FilePath "java.exe" `
-                  -WorkingDirectory "$VARCD\mindcraft\MinecraftServer" `
-                  -ArgumentList "-Xmx4G -jar server.jar" `
-                  -RedirectStandardOutput "$VARCD\mindcraft\MinecraftServer\server.log" `
-                  -WindowStyle Hidden
+    Start-Process java.exe -WorkingDirectory "$VARCD\mindcraft\MinecraftServer" `
+        -ArgumentList "-Xmx4G -jar server.jar" `
+        -RedirectStandardOutput "$VARCD\mindcraft\MinecraftServer\server.log" `
+        -WindowStyle Hidden
 
-    # Wait for world to finish loading
     while ($true) {
         if (Get-Content "$VARCD\mindcraft\MinecraftServer\server.log" -Tail 1 | Select-String "Done") {
-            Write-Message "Minecraft server world loaded!" -Type "INFO"
-            return
+            Write-Message INFO "Minecraft server ready!"; return
         }
-        Write-Message "Waiting for world to load.." -Type "INFO"
-        Start-Sleep -Seconds 4
+        Write-Message INFO "Waiting for world to load..."
+        Start-Sleep 4
     }
 }
 
+function OllamaGape {
+    $cacheFile = "OllamaMonitor.json"
+    try {
+        if (Test-Path $cacheFile) {
+            $servers = Get-Content $cacheFile -Raw | ConvertFrom-Json
+        } else {
+            $h = @{ 'Host'='awesome-ollama-server.vercel.app'; 'User-Agent'='Mozilla/5.0'; 'Accept'='*/*'; 'Referer'='https://awesome-ollama-server.vercel.app/en' }
+            $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+            $s.Cookies.Add((New-Object System.Net.Cookie('NEXT_LOCALE','en','/','awesome-ollama-server.vercel.app')))
+            $raw = (Invoke-WebRequest -Uri 'https://awesome-ollama-server.vercel.app/data.json' -Method GET -Headers $h -WebSession $s -UseBasicParsing).Content
+            $raw | Out-File $cacheFile -Encoding utf8 -Force
+            $servers = $raw | ConvertFrom-Json
+        }
+    } catch { throw "Error loading server list: $_" }
 
-######################################################################################################################### FUNCTIONS END
+    $checkScript = {
+        param($e, $flag)
+        if (Test-Path $flag) { return }
+        $ip = ($e.server -replace 'https?://','') -replace ':.*',''
+        if ([string]::IsNullOrWhiteSpace($ip)) { return }
+        if ($ip -in @('152.53.81.57','123.123.123.123','91.107.206.49')) { return }
+        $models = @($e.models | Where-Object { $_ -notmatch 'smollm|embed|bge|nomic|all-minilm|gemma3:latest|dolphin3:latest' })
+        if (!$models.Count) { return }
+        $uri = "http://${ip}:11434/api/chat"
+        $q   = "What's the default port for a Minecraft server? Respond with a single word or token."
+        foreach ($m in $models) {
+            if (Test-Path $flag) { return }
+            try {
+                $body = @{ model=$m; messages=@(@{ role="user"; content=$q }); stream=$false } | ConvertTo-Json
+                $ans  = (Invoke-RestMethod -Uri $uri -TimeoutSec 10 -Method Post -Body $body -ContentType "application/json").message.content
+                if ("$ip,$m,$ans" -match "25565") {
+                    [System.IO.File]::WriteAllText($flag, "$ip,$m,$ans")
+                    return "__RESULT__:$ip,$m,$ans"
+                }
+            } catch {}
+        }
+    }
 
-############# StartMineCraft
-$Button = New-Object System.Windows.Forms.Button
-$Button.AutoSize = $true
-$Button.Text = "StartMineCraft"
-$Button.Location = New-Object System.Drawing.Point(($hShift+0),($vShift+0))
-$Button.Add_Click({StartMineCraft})
-$main_form.Controls.Add($Button)
-$vShift = $vShift + 30
+    $flag = [System.IO.Path]::GetTempFileName(); Remove-Item $flag -Force
+    $jobs = @(); $maxJobs = 5; $finalResult = $null
 
+    foreach ($e in $servers) {
+        if (Test-Path $flag) { break }
+        while (@(Get-Job -State Running).Count -ge $maxJobs) { Start-Sleep -Milliseconds 300; if (Test-Path $flag) { break } }
+        $jobs += Start-Job -ScriptBlock $checkScript -ArgumentList $e, $flag
+    }
 
-############# CMDPrompt
-$Button = New-Object System.Windows.Forms.Button
-$Button.AutoSize = $true
-$Button.Text = "Command Prompt Java/Git/Node/Python"
-$Button.Location = New-Object System.Drawing.Point(($hShift),($vShift+0))
-$Button.Add_Click({CMDPrompt})
-$main_form.Controls.Add($Button)
-$vShift = $vShift + 30
+    foreach ($job in $jobs) {
+        $null = Wait-Job $job -Timeout 10
+        if ($job.State -eq 'Running') { Stop-Job $job }
+        $out = Receive-Job $job; Remove-Job $job -Force
+        if (!$finalResult -and $out -match '^__RESULT__:') {
+            $finalResult = $out -replace '^__RESULT__:',''
+            $p = $finalResult -split ','
+            $Global:OllamaValidIP    = $p[0].Trim()
+            $Global:OllamaValidModel = $p[1].Trim()
+        }
+        if ($finalResult) { break }
+    }
 
-############# CMDPrompt
-$Button = New-Object System.Windows.Forms.Button
-$Button.AutoSize = $true
-$Button.Text = "Change Minecraft Server.jar"
-$Button.Location = New-Object System.Drawing.Point(($hShift),($vShift+0))
-$Button.Add_Click({Get-MinecraftVersion})
-$main_form.Controls.Add($Button)
-$vShift = $vShift + 30
+    Get-Job | Stop-Job; Get-Job | Remove-Job -Force
+    if (Test-Path $flag) { Remove-Item $flag -Force }
+    Write-Message INFO "Using $Global:OllamaValidIP / $Global:OllamaValidModel"
+    return $finalResult
+}
 
+function StartMineCraft {
+    CheckSDK; CheckPython; CheckGit; CheckJava; CheckNode
+    MinecraftServer; CheckMindcraft; CheckGPU
+    Remove-Item "$VARCD\mindcraft\mindcraft-ce\bots\Andy" -Force -Recurse -EA SilentlyContinue | Out-Null
+    Set-Location "$VARCD\mindcraft\mindcraft-ce"
+    Write-Message INFO "Starting Mindcraft"
+    Start-Process "$VARCD\node\node.exe" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "main.js"
+    Write-Message INFO "Waiting for bot viewer on http://localhost:3000"
+    Start-Sleep 15
+    Start-Process "http://localhost:3000"
+}
 
+# Build UI
+$buttons = @(
+    @{ Text='StartMineCraft';                        Action={ StartMineCraft } },
+    @{ Text='Command Prompt Java/Git/Node/Python';   Action={ CMDPrompt } },
+    @{ Text='Change Minecraft Server.jar';           Action={ Get-MinecraftVersion } },
+    @{ Text='Update';                                Action={ UpdateJAMBO } }
+)
+foreach ($b in $buttons) {
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.AutoSize = $true
+    $btn.Text = $b.Text
+    $btn.Location = New-Object System.Drawing.Point($hShift, $vShift)
+    $btn.Add_Click($b.Action)
+    $main_form.Controls.Add($btn)
+    $vShift += 30
+}
 
-############# UpdateJAMBO
-$Button = New-Object System.Windows.Forms.Button
-$Button.AutoSize = $true
-$Button.Text = "Update"
-$Button.Location = New-Object System.Drawing.Point(($hShift+0),($vShift+0))
-$Button.Add_Click({UpdateJAMBO})
-$main_form.Controls.Add($Button)
-$vShift = $vShift + 30 
-
-############# SHOW FORM
-$main_form.ShowDialog()
-
+[void]$main_form.ShowDialog()
