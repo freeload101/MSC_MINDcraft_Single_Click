@@ -174,7 +174,7 @@ foreach ($lib in $versionJson.libraries) {
 }
 
 # Download client and libraries
-Write-Host "Downloading client and libraries..." -ForegroundColor Cyan
+Write-Host "Downloading client and libraries...This may take 1-5 minutes to start..." -ForegroundColor Cyan
 Download-Async $downloads
 
 # Download assets using Mojang's asset index
