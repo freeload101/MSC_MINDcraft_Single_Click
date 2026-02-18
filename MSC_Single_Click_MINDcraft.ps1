@@ -175,7 +175,7 @@ function CheckGPU {
             Where-Object { $_."HardwareInformation.qwMemorySize" -gt 0 }
     $VRAM = [math]::Round($gpu."HardwareInformation.qwMemorySize" / 1GB)
 
-    if ($VRAM -lt 5999) {
+    if ($VRAM -lt 5) {
         Write-Message WARNING "GPU VRAM < 5 GB. Using public Ollama server."
         $Global:GPUVRAM = 0
         Get-WmiObject -Class CIM_VideoController | Select-Object Name,Description,DeviceID,VideoMemoryType | Format-Table -AutoSize
