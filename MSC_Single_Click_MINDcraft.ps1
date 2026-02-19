@@ -227,7 +227,7 @@ function CheckMindcraft {
     Start-Process "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList "clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`"" -Wait -NoNewWindow
     Set-Location "$VARCD\mindcraft\mindcraft-ce"
     Write-Message INFO "Running npm install..."
-    Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "install --progress=true --loglevel=info" -NoNewWindow 
+    Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "install --progress=true --loglevel=info" -NoNewWindow  -RedirectStandardError '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt'
     Start-Sleep 5
     Start-Process powershell -ArgumentList "-NoExit","-Command","& { Get-Content '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt' -Wait }"
     while (!(Select-String -Path RedirectStandardOutput.txt -Pattern "patch-package finished" -Quiet)) { Start-Sleep 10 }
