@@ -1,6 +1,6 @@
 param([string]$Headless)
 
-$VerNum = 'MSC 1.8'
+$VerNum = 'MSC 1.9'
 $host.ui.RawUI.WindowTitle = $VerNum
 Set-Location ($VARCD = (Get-Location))
 $env:HOMEPATH = $env:USERPROFILE = $VARCD
@@ -148,40 +148,48 @@ function EXECheckOllama {
         Add-Type -Assembly System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\ollama-windows-amd64.zip","$VARCD\Ollama\")
         Write-Message INFO "Starting Ollama"
-        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "serve"
+        Start-Process "cmd.exe" -ArgumentList "/c title Ollama Server && `"$VARCD\Ollama\ollama.exe`" serve" -WorkingDirectory "$VARCD\Ollama\"
         while (!(Get-Process ollama -EA SilentlyContinue)) { Start-Sleep 5; Write-Message INFO "Waiting for Ollama..." }
         Start-Sleep 10
         Remove-Item "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -EA SilentlyContinue | Out-Null
-        Write-Message INFO "Pulling nomic-embed-text"
-        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "pull nomic-embed-text" -Wait -NoNewWindow
-        Write-Message INFO "Pulling sweaterdog/andy-4:q8_0"
+        Write-Message INFO "Pulling embeddinggemma"
+        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "pull embeddinggemma" -Wait -NoNewWindow
+		Write-Message INFO "Pulling sweaterdog/andy-4:q8_0"
         Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "pull sweaterdog/andy-4:q8_0" -Wait -NoNewWindow
+		
     } else {
         Write-Message INFO "Starting Ollama"
-        Start-Process "$VARCD\Ollama\ollama.exe" -WorkingDirectory "$VARCD\Ollama\" -ArgumentList "serve"
+        Start-Process "cmd.exe" -ArgumentList "/c title Ollama Server && `"$VARCD\Ollama\ollama.exe`" serve" -WorkingDirectory "$VARCD\Ollama\"
         while (!(Get-Process ollama -EA SilentlyContinue)) { Start-Sleep 5; Write-Message INFO "Waiting for Ollama..." }
         Start-Sleep 2
-        Remove-Item "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -EA SilentlyContinue | Out-Null
+		Remove-Item "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk" -Force -EA SilentlyContinue | Out-Null
     }
 }
 
-function CheckGPU {
-    Write-Message INFO "Writing Andy.json template"
-    @'
-{"name":"andy","model":{"api":"ollama","url":"http://localhost:11434","model":"sweaterdog/andy-4:q8_0"},"speak_model":"system"}
-'@ | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
 
+function CheckGPU {
     $gpu  = Get-ItemProperty "HKLM:\SYSTEM\ControlSet001\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0*" |
             Where-Object { $_."HardwareInformation.qwMemorySize" -gt 0 }
     $VRAM = [math]::Round($gpu."HardwareInformation.qwMemorySize" / 1GB)
 
-    if ($VRAM -lt 5) {
+    if ($VRAM -lt 5999) {
         Write-Message WARNING "GPU VRAM < 5 GB. Using public Ollama server."
         $Global:GPUVRAM = 0
         Get-WmiObject -Class CIM_VideoController | Select-Object Name,Description,DeviceID,VideoMemoryType | Format-Table -AutoSize
+		Write-Message INFO "Writing Andy.json template for local Ollama Server"
+    @'
+{"name":"andy","model":{"api":"ollama","url":"http://localhost:11434","model":"sweaterdog/andy-4:q8_0"},"speak_model":"system"}
+'@ | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
+
     } else {
         Write-Message INFO "GPU: $($gpu.DriverDesc) with $VRAM GB VRAM"
         $Global:GPUVRAM = 1
+		Write-Message INFO "Writing Andy.json template for Public Ollama Server"
+    @'
+{"name":"andy","model":{"api":"ollama","url":"http://localhost:11434","model":"sweaterdog/andy-4:q8_0"},"speak_model":"system","embedding": "ollama"}
+'@ | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
+
+
         EXECheckOllama
     }
 
@@ -192,6 +200,7 @@ function CheckGPU {
              -replace 'sweaterdog\/andy-4:q8_0', $Global:OllamaValidModel
         $c | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
         Write-Message INFO "Andy.json updated: IP=$Global:OllamaValidIP Model=$Global:OllamaValidModel"
+		Write-Message ERROR "You may need to close and restart the bot a few time to find a good ollama server that responds"
     }
 }
 
@@ -219,7 +228,7 @@ function CheckMindcraft {
     Start-Process "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList "clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`"" -Wait -NoNewWindow
     Set-Location "$VARCD\mindcraft\mindcraft-ce"
     Write-Message INFO "Running npm install..."
-    Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "install --progress=true --loglevel=info" -NoNewWindow -RedirectStandardOutput RedirectStandardOutput.txt -RedirectStandardError RedirectStandardError.txt
+    Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "install --progress=true --loglevel=info" -NoNewWindow 
     Start-Sleep 5
     Start-Process powershell -ArgumentList "-NoExit","-Command","& { Get-Content '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt' -Wait }"
     while (!(Select-String -Path RedirectStandardOutput.txt -Pattern "patch-package finished" -Quiet)) { Start-Sleep 10 }
@@ -363,21 +372,23 @@ function OllamaGape {
     return $finalResult
 }
 
-function StartMineCraft {
+function StartMINDCraft {
     CheckSDK; CheckPython; CheckGit; CheckJava; CheckNode
     MinecraftServer; CheckMindcraft; CheckGPU
     Remove-Item "$VARCD\mindcraft\mindcraft-ce\bots\Andy" -Force -Recurse -EA SilentlyContinue | Out-Null
     Set-Location "$VARCD\mindcraft\mindcraft-ce"
     Write-Message INFO "Starting Mindcraft"
-    Start-Process "$VARCD\node\node.exe" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "main.js"
+    #Start-Process "$VARCD\node\node.exe" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "main.js"
+    #Start-Process "cmd.exe" -ArgumentList "/c title MINDCraft Bot && `"$VARCD\node\node.exe`" main.js" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce"
+	Start-Process "cmd.exe" -ArgumentList "/c title MINDCraft Bot & set TITLE=MINDCraft Bot & `"$VARCD\node\node.exe`" main.js & title MINDCraft Bot" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce"
     Write-Message INFO "Waiting for bot viewer on http://localhost:3000"
-    Start-Sleep 15
-    Start-Process "http://localhost:3000"
+    #Start-Sleep 15
+    #Start-Process "http://localhost:3000"
 }
 
 # Build UI
 $buttons = @(
-    @{ Text='StartMineCraft';                        Action={ StartMineCraft } },
+    @{ Text='StartMINDCraft';                        Action={ StartMINDCraft } },
     @{ Text='Command Prompt Java/Git/Node/Python';   Action={ CMDPrompt } },
     @{ Text='Change Minecraft Server.jar';           Action={ Get-MinecraftVersion } },
     @{ Text='Update';                                Action={ UpdateJAMBO } }
