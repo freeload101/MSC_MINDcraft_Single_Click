@@ -136,7 +136,7 @@ function UpdateJAMBO {
 function EXECheckOllama {
     Write-Message INFO "Setting Ollama environment variables"
     $env:OLLAMA_HOST = "0.0.0.0"; $env:OLLAMA_KEEP_ALIVE = "-1"; $env:OLLAMA_FLASH_ATTENTION = "1"
-    $env:OLLAMA_MODELS = "$VARCD\Ollama\.ollama"
+    $env:OLLAMA_MODELS = "$VARCD\Ollama\.ollama";  $env:OLLAMA_VULKAN = "1"
     Stop-Process -Name ollama -Force -EA SilentlyContinue | Out-Null
 
     if (-not (Test-Path "$VARCD\Ollama")) {
