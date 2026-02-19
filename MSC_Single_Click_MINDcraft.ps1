@@ -1,6 +1,6 @@
 param([string]$Headless)
 
-$VerNum = 'MSC 1.9'
+$VerNum = 'MSC 2.0'
 $host.ui.RawUI.WindowTitle = $VerNum
 Set-Location ($VARCD = (Get-Location))
 $env:HOMEPATH = $env:USERPROFILE = $VARCD
@@ -224,14 +224,21 @@ function CheckMindcraft {
     if (Test-Path "$VARCD\mindcraft\mindcraft-ce") { return }
     Write-Message INFO "Cloning mindcraft-ce"
     New-Item "$VARCD\mindcraft" -ItemType Directory -EA SilentlyContinue | Out-Null
+    New-Item "$VARCD\mindcraft\mindcraft-ce\" -ItemType Directory -EA SilentlyContinue | Out-Null
     Start-Process "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList "clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`"" -Wait -NoNewWindow
     Set-Location "$VARCD\mindcraft\mindcraft-ce"
-    Write-Message INFO "Running npm install..."
-    Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" -ArgumentList "install --progress=true --loglevel=info" -NoNewWindow  -RedirectStandardError '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt'
-    Start-Sleep 5
-    Start-Process powershell -ArgumentList "-NoExit","-Command","& { Get-Content '$VARCD\mindcraft\mindcraft-ce\RedirectStandardError.txt' -Wait }"
-    while (!(Select-String -Path RedirectStandardOutput.txt -Pattern "patch-package finished" -Quiet)) { Start-Sleep 10 }
-    Write-Message INFO "npm install complete"
+
+    Write-Message INFO "Starting npm install in new window..."
+
+    $proc = Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce" `
+        -ArgumentList "install", "--progress=true", "--loglevel=info" `
+        -PassThru -Wait
+
+    if ($proc.ExitCode -eq 0) {
+        Write-Message INFO "npm install complete"
+    } else {
+        Write-Message ERROR "npm install failed with exit code $($proc.ExitCode)"
+    }
 
     # Patch settings.js
     $sjs = "$VARCD\mindcraft\mindcraft-ce\settings.js"
@@ -259,6 +266,9 @@ function CheckMindcraft {
         $raw | Set-Content $profile
     }
 }
+
+
+
 
 function MinecraftServer {
     $running = Get-WmiObject Win32_Process -Filter "Name='java.exe'" |
