@@ -208,7 +208,7 @@ $jsonContent = @'
     "fields": [
       {
         "key": "llm.load.contextLength",
-        "value": 16384
+        "value": 32768
       }
     ]
   }
