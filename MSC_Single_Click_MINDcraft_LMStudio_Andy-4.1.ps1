@@ -1,6 +1,6 @@
 param([string]$Headless)
 
-$VerNum = 'MSC 2.0'
+$VerNum = 'MSC LMS tudio 1.0a'
 $host.ui.RawUI.WindowTitle = $VerNum
 Set-Location ($VARCD = (Get-Location))
 $env:HOMEPATH = $env:USERPROFILE = $VARCD
