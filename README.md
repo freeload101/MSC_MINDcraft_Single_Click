@@ -4,10 +4,12 @@
 - Bedrock: `tunnel.rmccurdy.com:55632`
 - Open Source PowerShell Installer: [MineCraft Java Single Click]
 <img width="735" height="301" alt="{39EA8BD5-E15C-49B7-B4DE-9CDD21534856}" src="https://github.com/user-attachments/assets/9cce537f-4f1f-4976-8031-0bbcfe12df94" />
-- Wait under 10 min Andy will join you !
-
 (https://github.com/freeload101/MSC_MINDcraft_Single_Click/raw/refs/heads/main/MJSC_MineCraft_Java_Single_Click.ps1)
 - `powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://github.com/freeload101/MSC_MINDcraft_Single_Click/raw/refs/heads/main/MJSC_MineCraft_Java_Single_Click.ps1 | iex"`
+
+- Wait under 10 minutes Andy will join you !
+
+
 
 # MSC MINDcraft Single Click 
 One-click PowerShell script for setting up a portable MINDcraft installation. 
