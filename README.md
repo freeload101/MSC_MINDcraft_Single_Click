@@ -2,8 +2,7 @@
 
 - Java: `tunnel.rmccurdy.com:55631`
 - Bedrock: `tunnel.rmccurdy.com:55632`
-- Open Source PowerShell Installer: [MineCraft Java Single Click]
-(https://github.com/freeload101/MSC_MINDcraft_Single_Click/raw/refs/heads/main/MJSC_MineCraft_Java_Single_Click.ps1)
+- Open Source PowerShell Installer: [MineCraft Java Single Click](https://github.com/freeload101/MSC_MINDcraft_Single_Click/raw/refs/heads/main/MJSC_MineCraft_Java_Single_Click.ps1)
 - `powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://github.com/freeload101/MSC_MINDcraft_Single_Click/raw/refs/heads/main/MJSC_MineCraft_Java_Single_Click.ps1 | iex"`
 
 - Wait under 10 minutes Andy will join you !
