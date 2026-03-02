@@ -1,31 +1,30 @@
-#requires -Version 3.0
-# sort of portable install of LM Studio no Admin required !
+#requires -Version 3.1
+# Portable install of LM Studio - no Admin required
 
 param([switch]$VerboseDebug)
 
 # -- Portability ---------------------------------------------------------------
 Set-Location ($VARCD = Get-Location); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
 
-# -- Model config --------------------------------------------------------------
+# -- Config --------------------------------------------------------------------
 $ModelPublisher = "Mindcraft-CE"
 $ModelRepo      = "Andy-4.1-GGUF"
 $ModelFile      = "andy-4.1.q4_k_m.gguf"
-$ModelKey        = "$ModelPublisher/$ModelRepo/$ModelFile"
 $HFUrl          = "https://huggingface.co/$ModelPublisher/$ModelRepo/resolve/main/$ModelFile"
 $ApiPort        = 1234
+$ApiHost        = "0.0.0.0"
+$InstallerUrl   = "https://installers.lmstudio.ai/win32/x64/0.4.5-2/LM-Studio-0.4.5-2-x64.exe"
 
 # -- Download helper -----------------------------------------------------------
 function downloadFile($url, $file) {
     $req = [System.Net.HttpWebRequest]::Create($url)
     $req.AllowAutoRedirect = $true
-    $req.Timeout = 600000            # 10 min connect timeout
-    $req.ReadWriteTimeout = 600000   # 10 min read timeout
+    $req.Timeout = 600000
+    $req.ReadWriteTimeout = 600000
     $req.UserAgent = "Mozilla/5.0"
     $webRes = $req.GetResponse()
     $expectedLen = $webRes.ContentLength
-    if ($expectedLen -gt 0) {
-        Write-Host "  Expected size   : $([math]::Round($expectedLen / 1MB)) MB"
-    }
+    if ($expectedLen -gt 0) { Write-Host "  Expected size   : $([math]::Round($expectedLen / 1MB)) MB" }
     $res = $webRes.GetResponseStream()
     $fs  = [System.IO.FileStream]::new($file, 'Create')
     $buf = [byte[]]::new(256KB)
@@ -42,11 +41,7 @@ function downloadFile($url, $file) {
             }
         }
     }
-    $fs.Flush()
-    $fs.Close()
-    $res.Close()
-    $webRes.Close()
-    # Verify download completeness
+    $fs.Flush(); $fs.Close(); $res.Close(); $webRes.Close()
     $actualLen = (Get-Item $file).Length
     Write-Host "  Actual size     : $([math]::Round($actualLen / 1MB)) MB"
     if ($expectedLen -gt 0 -and $actualLen -ne $expectedLen) {
@@ -56,7 +51,7 @@ function downloadFile($url, $file) {
     }
 }
 
-# -- Port poller - hard max 20 sec --------------------------------------------
+# -- TCP port poller -----------------------------------------------------------
 function Wait-Port {
     param([int]$Port, [int]$MaxSec = 20)
     $elapsed = 0
@@ -66,10 +61,7 @@ function Wait-Port {
         try {
             $tc = New-Object System.Net.Sockets.TcpClient
             $tc.Connect("127.0.0.1", $Port)
-            if ($tc.Connected) {
-                $tc.Close()
-                return $true
-            }
+            if ($tc.Connected) { $tc.Close(); return $true }
         } catch { }
         Write-Host "  ... $elapsed / $MaxSec sec" -ForegroundColor DarkGray
     }
@@ -92,11 +84,9 @@ Write-Host "=== LM Studio Portable Setup ===" -ForegroundColor Cyan
 Write-Host "Working directory : $VARCD"
 
 # -- Download installer --------------------------------------------------------
-$InstallerUrl  = "https://installers.lmstudio.ai/win32/x64/0.4.5-2/LM-Studio-0.4.5-2-x64.exe"
-$InstallerPath = "$InstallerDir\LM-Studio-0.4.5-2-x64.exe"
-
+$InstallerPath = "$InstallerDir\$([System.IO.Path]::GetFileName($InstallerUrl))"
 if (-not (Test-Path $InstallerPath)) {
-    Write-Host "Downloading LM Studio 0.4.5-2..." -ForegroundColor Yellow
+    Write-Host "Downloading LM Studio installer..." -ForegroundColor Yellow
     downloadFile $InstallerUrl $InstallerPath
     Write-Host "Download complete." -ForegroundColor Green
 } else {
@@ -108,10 +98,7 @@ $LMExe = "$LMStudioDir\LM Studio.exe"
 if (-not (Test-Path $LMExe)) {
     Write-Host "Extracting LM Studio..." -ForegroundColor Yellow
     Start-Process $InstallerPath -ArgumentList "/S", "/D=`"$LMStudioDir`"" -Wait
-    if (-not (Test-Path $LMExe)) {
-        Write-Error "Extraction failed."
-        exit 1
-    }
+    if (-not (Test-Path $LMExe)) { Write-Error "Extraction failed."; exit 1 }
     Write-Host "Extraction complete." -ForegroundColor Green
 } else {
     Write-Host "LM Studio already extracted."
@@ -120,76 +107,60 @@ if (-not (Test-Path $LMExe)) {
 # -- Find lms.exe --------------------------------------------------------------
 $LMSCli = Get-ChildItem -Path $LMStudioDir -Recurse -Filter "lms.exe" `
           -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $LMSCli) {
-    Write-Error "lms.exe not found."
-    exit 1
-}
+if (-not $LMSCli) { Write-Error "lms.exe not found."; exit 1 }
 $LMSPath = $LMSCli.FullName
 Write-Host "Found LMS CLI     : $LMSPath"
 
-# -- Download model BEFORE launching LM Studio ---------------------------------
+# -- Download model ------------------------------------------------------------
 $ModelPath = "$ModelDir\$ModelFile"
 if (-not (Test-Path $ModelPath)) {
     Write-Host "`nDownloading model : $ModelFile" -ForegroundColor Yellow
     Write-Host "Source            : $HFUrl"
-    Write-Host "(~2 GB - please wait...)"
     downloadFile $HFUrl $ModelPath
-    if (-not (Test-Path $ModelPath)) {
-        Write-Error "Model download failed."
-        exit 1
-    }
+    if (-not (Test-Path $ModelPath)) { Write-Error "Model download failed."; exit 1 }
     Write-Host "Model download OK : $ModelPath" -ForegroundColor Green
 } else {
     Write-Host "`nModel on disk     : $ModelPath"
 }
 
-# -- Kill stale instances ------------------------------------------------------
-Get-Process | Where-Object { $_.Name -match "^LM.Studio$|^lms$" } |
-    Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
+# -- Kill stale instances + clear Electron singleton locks ---------------------
+Write-Host "`nStopping any existing LM Studio processes..." -ForegroundColor DarkGray
 
-# -- Patch settings.json -------------------------------------------------------
-$SettingsPath = "$LMSDataDir\settings.json"
-try {
-    if (Test-Path $SettingsPath) {
-        $cfg = Get-Content $SettingsPath -Raw -ErrorAction Stop | ConvertFrom-Json
-    } else {
-        $cfg = [PSCustomObject]@{}
+Get-Process | Where-Object { $_.Name -match "(?i)lm.?studio|^lms$|electron" } |
+    ForEach-Object {
+        Write-Host "  Killing PID $($_.Id) : $($_.Name)" -ForegroundColor DarkGray
+        Stop-Process $_ -Force -ErrorAction SilentlyContinue
     }
-} catch {
-    $cfg = [PSCustomObject]@{}
+
+Write-Host "  Waiting for handle release (5 sec)..." -ForegroundColor DarkGray
+Start-Sleep -Seconds 5
+
+$RealAppData   = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ApplicationData)
+$RealLocalData = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)
+
+foreach ($dir in (@("$VARCD\AppData\Roaming\LM Studio", "$VARCD\AppData\Local\LM Studio",
+                    "$RealAppData\LM Studio", "$RealLocalData\LM Studio") | Sort-Object -Unique)) {
+    foreach ($lockName in @("SingletonLock", "lockfile", "SingletonCookie", "SingletonSocket")) {
+        $lf = Join-Path $dir $lockName
+        if (Test-Path $lf) {
+            Remove-Item $lf -Force -ErrorAction SilentlyContinue
+            Write-Host "  Removed lock    : $lf" -ForegroundColor DarkGray
+        }
+    }
 }
+Write-Host "Process cleanup   : done" -ForegroundColor Green
 
-$cfg | Add-Member -MemberType NoteProperty -Name "autoStartServer"          -Value $false                  -Force
-$cfg | Add-Member -MemberType NoteProperty -Name "serverPort"               -Value $ApiPort                -Force
-$cfg | Add-Member -MemberType NoteProperty -Name "serverCorsEnabled"        -Value $true                   -Force
-$cfg | Add-Member -MemberType NoteProperty -Name "developerMode"            -Value $true                   -Force
-$cfg | Add-Member -MemberType NoteProperty -Name "justInTimeModelLoading"   -Value $true                   -Force
-$cfg | Add-Member -MemberType NoteProperty -Name "verboseLogging"           -Value $VerboseDebug.IsPresent -Force
-
-$cfg | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Force
-Write-Host "Settings patched  : $SettingsPath"
-
-# -- Restore backend preferences to CUDA12 ------------------------------------
+# -- Backend preferences (CUDA12) ----------------------------------------------
 $BackendPrefsPath = "$LMSDataDir\.internal\backend-preferences-v1.json"
-$backendPrefs = @(
-    @{
-        model_format = "gguf"
-        name         = "llama.cpp-win-x86_64-nvidia-cuda12-avx2"
-        version      = "2.4.0"
-    }
-) | ConvertTo-Json -Depth 4
-$backendPrefs | Set-Content -Path $BackendPrefsPath -Force
-Write-Host "Backend prefs     : CUDA12 restored"
+@( @{ model_format = "gguf"; name = "llama.cpp-win-x86_64-nvidia-cuda12-avx2"; version = "2.4.0" } ) |
+    ConvertTo-Json -Depth 4 | Set-Content -Path $BackendPrefsPath -Force
+Write-Host "Backend prefs     : CUDA12 set"
 
-# -- Define Pathing -----------------------------------------------------------
+# -- Per-model config ----------------------------------------------------------
 $PerModelDir = "$LMSDataDir\.internal\user-concrete-model-default-config\$ModelPublisher\$ModelRepo"
 New-Item -ItemType Directory -Force -Path $PerModelDir | Out-Null
-$PerModelPath = "$PerModelDir\$ModelFile.json"
 
-# hates \r\n an inside jinja is a PINA to parse use GUI to get the .json file to write out ...
-
-$jsonContent = @'
+$perModelJson = @'
 {
   "preset": "",
   "operation": {
@@ -217,137 +188,157 @@ $jsonContent = @'
 }
 '@
 
-# Replace Windows CRLF with Unix LF
-$unixContent = $jsonContent -replace "`r`n", "`n"
+[System.IO.File]::WriteAllText("$PerModelDir\$ModelFile.json", ($perModelJson -replace "`r`n", "`n"))
+Write-Host "Per-model config  : $PerModelDir\$ModelFile.json" -ForegroundColor Green
 
-# Write using [System.IO.File] to prevent PowerShell from re-adding CRLF
-[System.IO.File]::WriteAllText("$PerModelPath", $unixContent)
+# ==============================================================================
+# LAUNCH SEQUENCE
+# ==============================================================================
 
- 
-Write-Host "Success: Template written with literal formatting to $PerModelPath" -ForegroundColor Green
-
+# -- Capture settings.json baseline before launch ------------------------------
+$SettingsPath     = "$LMSDataDir\settings.json"
+$settingsBaseline = if (Test-Path $SettingsPath) { (Get-Item $SettingsPath).LastWriteTime } `
+                    else { [datetime]::MinValue }
+Write-Host "`nSettings baseline : $settingsBaseline"
 
 # -- Launch LM Studio ----------------------------------------------------------
-Write-Host "`nLaunching LM Studio..." -ForegroundColor Cyan
-if ($VerboseDebug) {
-    Write-Host "Verbose logging   : ON" -ForegroundColor Magenta
-}
-# -ArgumentList "--minimized"  -PassThru -WindowStyle Hidden
+Write-Host "Launching LM Studio..." -ForegroundColor Cyan
+if ($VerboseDebug) { Write-Host "Verbose logging   : ON" -ForegroundColor Magenta }
+
 $LMSProc = Start-Process -FilePath $LMExe -ArgumentList "--minimized" -PassThru -WindowStyle Hidden
 Write-Host "LM Studio PID     : $($LMSProc.Id)"
 
-Write-Host "Startup pause (5 sec)..." -ForegroundColor DarkGray
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 3
+if ($LMSProc.HasExited) { Write-Error "LM Studio exited immediately - check the install."; exit 1 }
 
-if ($LMSProc.HasExited) {
-    Write-Error "LM Studio exited immediately - check the install."
-    exit 1
+# -- Wait for LM Studio to write settings.json --------------------------------
+Write-Host "Waiting for LM Studio to write settings.json (max 30 sec)..." -ForegroundColor DarkGray
+
+$maxWait       = 30
+$waited        = 0
+$settingsReady = $false
+
+while ($waited -lt $maxWait) {
+    Start-Sleep -Seconds 2
+    $waited += 2
+    if ((Test-Path $SettingsPath) -and ((Get-Item $SettingsPath).LastWriteTime -gt $settingsBaseline)) {
+        Write-Host "  settings.json written at $waited sec - applying patch..." -ForegroundColor DarkGray
+        Start-Sleep -Seconds 1
+        $settingsReady = $true
+        break
+    }
+    Write-Host "  ... $waited / $maxWait sec" -ForegroundColor DarkGray
 }
 
-# -- Start API server on port 1234 ---------------------------------------------
-Write-Host "`nStarting API server on port $ApiPort (max 20 sec)..." -ForegroundColor Cyan
+if (-not $settingsReady) { Write-Warning "settings.json not updated within $maxWait sec - patching anyway." }
+
+# -- Patch settings.json (after LM Studio has written it) ---------------------
+try {
+    $cfg = if (Test-Path $SettingsPath) {
+               Get-Content $SettingsPath -Raw -ErrorAction Stop | ConvertFrom-Json
+           } else { [PSCustomObject]@{} }
+} catch { $cfg = [PSCustomObject]@{} }
+
+$cfg | Add-Member -MemberType NoteProperty -Name "autoStartServer"        -Value $false                  -Force
+$cfg | Add-Member -MemberType NoteProperty -Name "serverPort"             -Value $ApiPort                -Force
+$cfg | Add-Member -MemberType NoteProperty -Name "serverHost"             -Value $ApiHost                -Force
+$cfg | Add-Member -MemberType NoteProperty -Name "serverCorsEnabled"      -Value $true                   -Force
+$cfg | Add-Member -MemberType NoteProperty -Name "developerMode"          -Value $true                   -Force
+$cfg | Add-Member -MemberType NoteProperty -Name "justInTimeModelLoading" -Value $true                   -Force
+$cfg | Add-Member -MemberType NoteProperty -Name "verboseLogging"         -Value $VerboseDebug.IsPresent -Force
+
+$cfg | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Force
+Write-Host "Settings patched  : $SettingsPath" -ForegroundColor Green
+
+# -- Start API server ----------------------------------------------------------
+Write-Host "`nStarting API server on $ApiHost`:$ApiPort (max 20 sec)..." -ForegroundColor Cyan
 
 $srvArgs = [System.Collections.Generic.List[string]]::new()
-$srvArgs.Add("server")
-$srvArgs.Add("start")
-$srvArgs.Add("--port")
-$srvArgs.Add("$ApiPort")
+$srvArgs.Add("server"); $srvArgs.Add("start")
+$srvArgs.Add("--port"); $srvArgs.Add("$ApiPort")
 $srvArgs.Add("--cors")
+if ($VerboseDebug) { $srvArgs.Add("--verbose") }
 
+$srvStartArgs = @{
+    FilePath     = $LMSPath
+    ArgumentList = $srvArgs
+    PassThru     = $true
+    WindowStyle  = "Hidden"
+}
 if ($VerboseDebug) {
-    $srvArgs.Add("--verbose")
-    $SrvProc = Start-Process -FilePath $LMSPath `
-                             -ArgumentList $srvArgs `
-                             -PassThru -WindowStyle Hidden `
-                             -RedirectStandardOutput "$LogDir\lms-server.log" `
-                             -RedirectStandardError  "$LogDir\lms-server-err.log"
-} else {
-    $SrvProc = Start-Process -FilePath $LMSPath `
-                             -ArgumentList $srvArgs `
-                             -PassThru -WindowStyle Hidden
+    $srvStartArgs.RedirectStandardOutput = "$LogDir\lms-server.log"
+    $srvStartArgs.RedirectStandardError  = "$LogDir\lms-server-err.log"
 }
 
+$SrvProc = Start-Process @srvStartArgs
 Write-Host "lms server PID    : $($SrvProc.Id)"
 
 if (-not (Wait-Port -Port $ApiPort -MaxSec 20)) {
     Write-Error "Port $ApiPort not open after 20 sec."
-    if ($VerboseDebug) {
-        if (Test-Path "$LogDir\lms-server-err.log") {
-            Write-Host "`nServer error log:" -ForegroundColor Red
-            Get-Content "$LogDir\lms-server-err.log" | Select-Object -Last 15
-        }
+    if ($VerboseDebug -and (Test-Path "$LogDir\lms-server-err.log")) {
+        Write-Host "`nServer error log:" -ForegroundColor Red
+        Get-Content "$LogDir\lms-server-err.log" | Select-Object -Last 15
     }
     exit 1
 }
+Write-Host "API server UP     : http://$ApiHost`:$ApiPort" -ForegroundColor Green
 
-Write-Host "API server UP     : http://127.0.0.1:$ApiPort" -ForegroundColor Green
-
-# -- Discover model key via lms ls ---------------------------------------------
+# -- Discover model key via lms ls --------------------------------------------
 Write-Host "`nDiscovering model key..." -ForegroundColor Cyan
-$lmsLsOut = & $LMSPath ls 2>&1 | Out-String
+$lmsLsOut     = & $LMSPath ls 2>&1 | Out-String
 Write-Host $lmsLsOut -ForegroundColor DarkGray
 
-# Parse the short key from lms ls output (match lines containing our model file stem)
-$ModelStem = [System.IO.Path]::GetFileNameWithoutExtension($ModelFile) -replace '\.q\d.*$',''
+$ModelStem    = [System.IO.Path]::GetFileNameWithoutExtension($ModelFile) -replace '\.q\d.*$', ''
 $ModelLoadKey = $null
 foreach ($line in ($lmsLsOut -split "`n")) {
-    $trimmed = $line.Trim()
-    if ($trimmed -match $ModelStem -and $trimmed -notmatch '^\s*$' -and $trimmed -notmatch '^[-=]') {
-        # Extract the first token (the model key) from the line
-        if ($trimmed -match '^(\S+)') {
-            $ModelLoadKey = $Matches[1]
-            break
-        }
+    $t = $line.Trim()
+    if ($t -match $ModelStem -and $t -notmatch '^\s*$' -and $t -notmatch '^[-=]') {
+        if ($t -match '^(\S+)') { $ModelLoadKey = $Matches[1]; break }
     }
 }
-
 if (-not $ModelLoadKey) {
-    Write-Warning "Could not auto-detect model key from lms ls. Falling back to file stem."
-    $ModelLoadKey = ($ModelFile -replace '\.gguf$','').ToLower()
+    Write-Warning "Could not auto-detect model key - falling back to file stem."
+    $ModelLoadKey = ($ModelFile -replace '\.gguf$', '').ToLower()
 }
 Write-Host "Model load key    : $ModelLoadKey" -ForegroundColor Green
 
-# -- Load model (non-interactive via JIT) --------------------------------------
-# JIT loading is enabled in settings.json. The first API request will trigger
-# the model load automatically. No interactive lms load needed.
-Write-Host "`nJIT model loading enabled - first API call will load the model." -ForegroundColor Cyan
-Write-Host "Sending API test (may take a moment for initial model load)..." -ForegroundColor Cyan
-
 # -- API test ------------------------------------------------------------------
-$body = @{
-    model    = $ModelLoadKey
-    messages = @(
-        @{ role = "system"; content = "You are a helpful assistant." }
-        @{ role = "user";   content = "Reply with exactly: API test successful" }
+Write-Host "`nSending API test (first call triggers JIT model load)..." -ForegroundColor Cyan
+
+$testBody = @{
+    model       = $ModelLoadKey
+    messages    = @(
+        @{ role = "system"; content = "You are a helpful assistant. Follow instructions exactly." }
+        @{ role = "user";   content = "Reply with exactly the words: API test successful" }
     )
     temperature = 0.1
-    max_tokens  = 15
+    max_tokens  = 20
     stream      = $false
 } | ConvertTo-Json -Depth 4
 
 try {
     $resp = Invoke-RestMethod -Uri "http://127.0.0.1:$ApiPort/v1/chat/completions" `
                               -Method POST -ContentType "application/json" `
-                              -Body $body -TimeoutSec 120
+                              -Body $testBody -TimeoutSec 120
     $text = $resp.choices[0].message.content
-    Write-Host "Response  : '$text'"
-    if ($text -match "successful") {
-        Write-Host "[PASS] API working correctly!" -ForegroundColor Green
-    } else {
-        Write-Host "[CHECK] Unexpected content in response." -ForegroundColor Yellow
-    }
-    Write-Host "Tokens    : $($resp.usage.total_tokens)" -ForegroundColor DarkGray
+    Write-Host "Response          : '$text'"
+    Write-Host "Tokens            : $($resp.usage.total_tokens)" -ForegroundColor DarkGray
+    Write-Host "[PASS] API is responding." -ForegroundColor Green
 } catch {
     Write-Error "API test failed: $($_.Exception.Message)"
 }
 
-# -- Stop helper ---------------------------------------------------------------
-$stopScript = 'Get-Process | Where-Object { $_.Name -match "^LM.Studio$|^lms$" } | Stop-Process -Force -ErrorAction SilentlyContinue' + "`n" + 'Write-Host "LM Studio stopped."'
-$stopScript | Set-Content -Path "$VARCD\Stop-LMStudio.ps1" -Force
+# -- Generate stop script ------------------------------------------------------
+@"
+Get-Process | Where-Object { `$_.Name -match '(?i)lm.?studio|^lms`$' } |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+Write-Host 'LM Studio stopped.'
+"@ | Set-Content -Path "$VARCD\Stop-LMStudio.ps1" -Force
 
 # -- Summary -------------------------------------------------------------------
 Write-Host "`n=== Complete ===" -ForegroundColor Green
-Write-Host "Endpoint  : http://127.0.0.1:$ApiPort/v1/chat/completions"
+Write-Host "Endpoint  : http://$ApiHost`:$ApiPort/v1/chat/completions"
+Write-Host "Local     : http://127.0.0.1:$ApiPort/v1/chat/completions"
 Write-Host "Model     : $ModelLoadKey"
 Write-Host "LM PID    : $($LMSProc.Id)"
 Write-Host "Stop      : .\Stop-LMStudio.ps1"
