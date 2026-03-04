@@ -1,4 +1,3 @@
-#requires -Version 3.1
 # Portable install of LM Studio - no Admin required
 
 param([switch]$VerboseDebug)
