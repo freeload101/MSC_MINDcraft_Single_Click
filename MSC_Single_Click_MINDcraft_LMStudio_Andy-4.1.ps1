@@ -211,8 +211,8 @@ function CheckMindcraft {
     (Get-Content $sjs -Raw) -replace '"render_bot_view".*','"render_bot_view": true,' |
         Set-Content $sjs
     (Get-Content $sjs).Replace("55916","25565").Replace("8080","8881") | Set-Content $sjs
-    (Get-Content $sjs -Raw) -replace '"speak".*','"speak": "system",' |
-        Set-Content $sjs
+   # (Get-Content $sjs -Raw) -replace '"speak".*','"speak": "system",' |
+     #   Set-Content $sjs
     (Get-Content $sjs -Raw) -replace '"allow_vision".*','"allow_vision": true,' |
         Set-Content $sjs
     (Get-Content $sjs -Raw) -replace '"vision_mode".*','"vision_mode": "always",' |
