@@ -1,6 +1,6 @@
 param([string]$Headless)
 
-$VerNum = 'MSC LMS Studio 1.0a'
+$VerNum = 'MSC LMS Studio 1.3'
 $host.ui.RawUI.WindowTitle = $VerNum
 Set-Location ($VARCD = (Get-Location))
 $env:HOMEPATH = $env:USERPROFILE = $VARCD
@@ -134,15 +134,22 @@ function UpdateJAMBO {
 }
 
 function EXECheckLMStudio {
-	Write-Message INFO "Checking for LM Studio"
-	Set-Location ($VARCD)
-	$scriptFile = "$VARCD\LMStudioSC.ps1"
-	downloadFile "https://github.com/freeload101/MSC_MINDcraft_Single_Click/raw/refs/heads/main/LMStudioSC.ps1" $scriptFile
-
-	Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass -Force
-	& $scriptFile
-	}
  
+    # -- Download (if missing) and run LMStudioSC.ps1 ----------------------------
+    $scriptUrl  = "https://github.com/freeload101/MSC_MINDcraft_Single_Click/raw/refs/heads/main/LMStudioSC.ps1"
+    $scriptFile = "$VARCD\LMStudioSC.ps1"
+
+    if (-not (Test-Path $scriptFile)) {
+        Write-Host "Downloading LMStudioSC.ps1..." -ForegroundColor Cyan
+        downloadFile $scriptUrl $scriptFile
+    } else {
+        Write-Host "LMStudioSC.ps1 already exists, skipping download." -ForegroundColor Yellow
+    }
+
+    Write-Host "Running LMStudioSC.ps1..." -ForegroundColor Green
+    Start-Process powershell.exe -ArgumentList "-File `"$scriptFile`" "
+}
+
 
 
 function CheckGPU {
@@ -160,7 +167,7 @@ function CheckGPU {
         Write-Message WARNING "GPU: $($gpu.DriverDesc) with $VRAM GB VRAM"
         $Global:GPUVRAM = 1
 @'
-{ "name": "andy", "model": { "api": "openai", "model": "andy-4.1", "url": "http://localhost:1234/v1" } , "speak_model": null }
+{ "name": "andy-4.1", "model": { "api": "openai", "model": "andy-4.1", "url": "http://localhost:1234/v1" } , "speak_model": null }
 '@ | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
 
 		Write-Message INFO "Writing keys.json template for local LM Studio"
@@ -198,7 +205,7 @@ function CheckMindcraft {
     New-Item "$VARCD\mindcraft\mindcraft-ce\" -ItemType Directory -EA SilentlyContinue | Out-Null
     # DEV LOL ... Start-Process "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList "clone  -b dev `"https://github.com/mindcraft-ce/mindcraft-ce.git`"" -Wait -NoNewWindow
     Start-Process "$VARCD\PortableGit\cmd\git.exe" -WorkingDirectory "$VARCD\mindcraft" -ArgumentList "clone `"https://github.com/mindcraft-ce/mindcraft-ce.git`"" -Wait -NoNewWindow
-    Set-Location "$VARCD\mindcraft\mindcraft-ce"
+ 
 
     Write-Message INFO "Starting npm install in new window..."
 	
@@ -212,18 +219,18 @@ function CheckMindcraft {
         Set-Content $sjs
     (Get-Content $sjs).Replace("55916","25565").Replace("8080","8881") | Set-Content $sjs
    # (Get-Content $sjs -Raw) -replace '"speak".*','"speak": "system",' |
-     #   Set-Content $sjs
+   #     Set-Content $sjs
     (Get-Content $sjs -Raw) -replace '"allow_vision".*','"allow_vision": true,' |
         Set-Content $sjs
     (Get-Content $sjs -Raw) -replace '"vision_mode".*','"vision_mode": "always",' |
         Set-Content $sjs
 	(Get-Content $sjs -Raw) -replace '"base_profile".*','"base_profile": "survival",' |
         Set-Content $sjs
-
+	(Get-Content $sjs -Raw) -replace '"load_memory".*','"load_memory": true,' |
+		Set-Content $sjs	
     # Patch mindcraft.js for mindserver port 
     $mjs = "$VARCD\mindcraft\mindcraft-ce\src\mindcraft\mindcraft.js"
     (Get-Content $mjs).Replace("8080","8881") | Set-Content $mjs
-
 }
 
 
@@ -237,7 +244,6 @@ function MinecraftServer {
 
     if (-not (Test-Path "$VARCD\mindcraft\MinecraftServer")) {
         New-Item "$VARCD\mindcraft\MinecraftServer" -ItemType Directory -EA SilentlyContinue | Out-Null
-        Set-Location "$VARCD\mindcraft\MinecraftServer"
         Write-Message INFO "Downloading server.jar"
         downloadFile "https://piston-data.mojang.com/v1/objects/6e64dcabba3c01a7271b4fa6bd898483b794c59b/server.jar" "$VARCD\mindcraft\MinecraftServer\server.jar"
 @"
@@ -257,7 +263,7 @@ pvp=true
 allow-nether=true
 bonus-chest=true
 "@ | Out-File "$VARCD\mindcraft\MinecraftServer\server.properties" -Encoding ascii
-        "eula=true`n" | Out-File ".\eula.txt" -Encoding ascii
+        "eula=true`n" | Out-File "$VARCD\mindcraft\MinecraftServer\eula.txt" -Encoding ascii
     }
 
     Start-Process java.exe -WorkingDirectory "$VARCD\mindcraft\MinecraftServer" `
@@ -278,7 +284,6 @@ function StartMINDCraft {
     CheckSDK; CheckPython; CheckGit; CheckJava; CheckNode
     MinecraftServer; CheckMindcraft; CheckGPU
     Remove-Item "$VARCD\mindcraft\mindcraft-ce\bots\Andy" -Force -Recurse -EA SilentlyContinue | Out-Null
-    Set-Location "$VARCD\mindcraft\mindcraft-ce"
     Write-Message INFO "Starting Mindcraft"
 	Start-Process "cmd.exe" -ArgumentList "/c title MINDCraft Bot & set TITLE=MINDCraft Bot & `"$VARCD\node\node.exe`" main.js & title MINDCraft Bot" -WorkingDirectory "$VARCD\mindcraft\mindcraft-ce"
     Write-Message INFO "Waiting for bot viewer on http://localhost:3000"
