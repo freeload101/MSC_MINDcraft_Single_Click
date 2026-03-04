@@ -1,6 +1,6 @@
 # Portable install of LM Studio - no Admin required
 
-param([switch]$VerboseDebug)
+param([bool]$VerboseDebug = $true)
 
 # -- Portability ---------------------------------------------------------------
 Set-Location ($VARCD = Get-Location); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
@@ -180,7 +180,7 @@ $perModelJson = @'
     "fields": [
       {
         "key": "llm.load.contextLength",
-        "value": 32768
+        "value": 16384
       }
     ]
   }
