@@ -1,6 +1,8 @@
 # Portable install of LM Studio - no Admin required
+# can't change the path WIP
+# Version: 1.2a
 
-param([bool]$VerboseDebug = $true)
+param([bool]$VerboseDebug = $false)
 
 # -- Portability ---------------------------------------------------------------
 Set-Location ($VARCD = Get-Location); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
@@ -12,7 +14,7 @@ $ModelFile      = "andy-4.1.q4_k_m.gguf"
 $HFUrl          = "https://huggingface.co/$ModelPublisher/$ModelRepo/resolve/main/$ModelFile"
 $ApiPort        = 1234
 $ApiHost        = "0.0.0.0"
-$InstallerUrl   = "https://installers.lmstudio.ai/win32/x64/0.4.5-2/LM-Studio-0.4.5-2-x64.exe"
+$InstallerUrl   = "https://installers.lmstudio.ai/win32/x64/0.4.6-1/LM-Studio-0.4.6-1-x64.exe"
 
 # -- Download helper -----------------------------------------------------------
 function downloadFile($url, $file) {
@@ -180,7 +182,7 @@ $perModelJson = @'
     "fields": [
       {
         "key": "llm.load.contextLength",
-        "value": 16384
+        "value": 32768
       }
     ]
   }
@@ -204,7 +206,10 @@ Write-Host "`nSettings baseline : $settingsBaseline"
 Write-Host "Launching LM Studio..." -ForegroundColor Cyan
 if ($VerboseDebug) { Write-Host "Verbose logging   : ON" -ForegroundColor Magenta }
 
+# $LMSProc = Start-Process -FilePath $LMExe -ArgumentList "--minimized" -PassThru -WindowStyle Hidden
+
 $LMSProc = Start-Process -FilePath $LMExe -ArgumentList "--minimized" -PassThru -WindowStyle Hidden
+
 Write-Host "LM Studio PID     : $($LMSProc.Id)"
 
 Start-Sleep -Seconds 3
@@ -255,7 +260,7 @@ Write-Host "`nStarting API server on $ApiHost`:$ApiPort (max 20 sec)..." -Foregr
 $srvArgs = [System.Collections.Generic.List[string]]::new()
 $srvArgs.Add("server"); $srvArgs.Add("start")
 $srvArgs.Add("--port"); $srvArgs.Add("$ApiPort")
-$srvArgs.Add("--cors")
+$srvArgs.Add("--cors --verbose")
 if ($VerboseDebug) { $srvArgs.Add("--verbose") }
 
 $srvStartArgs = @{
@@ -327,20 +332,12 @@ try {
     Write-Error "API test failed: $($_.Exception.Message)"
 }
 
-# -- Generate stop script ------------------------------------------------------
-@"
-Get-Process | Where-Object { `$_.Name -match '(?i)lm.?studio|^lms`$' } |
-    Stop-Process -Force -ErrorAction SilentlyContinue
-Write-Host 'LM Studio stopped.'
-"@ | Set-Content -Path "$VARCD\Stop-LMStudio.ps1" -Force
-
 # -- Summary -------------------------------------------------------------------
 Write-Host "`n=== Complete ===" -ForegroundColor Green
 Write-Host "Endpoint  : http://$ApiHost`:$ApiPort/v1/chat/completions"
 Write-Host "Local     : http://127.0.0.1:$ApiPort/v1/chat/completions"
 Write-Host "Model     : $ModelLoadKey"
 Write-Host "LM PID    : $($LMSProc.Id)"
-Write-Host "Stop      : .\Stop-LMStudio.ps1"
 
 if ($VerboseDebug) {
     Write-Host "`nStreaming server logs (Ctrl+C to exit):" -ForegroundColor Magenta
