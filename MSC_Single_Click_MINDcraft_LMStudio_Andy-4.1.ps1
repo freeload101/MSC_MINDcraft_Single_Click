@@ -157,7 +157,7 @@ function CheckGPU {
             Where-Object { $_."HardwareInformation.qwMemorySize" -gt 0 }
     $VRAM = [math]::Round($gpu."HardwareInformation.qwMemorySize" / 1GB)
     if ($VRAM -lt 5) {
-        Write-Message WARNING "GPU VRAM < 5 GB. Andy-4.1 does not run on Ollama... so no public LM Studio servers RN ...Watch discord for andy API supporting Andy-4.1"
+        Write-Message WARNING "GPU VRAM < 5 GB. Andy does not run on Ollama... so no public LM Studio servers RN ...Watch discord for andy API supporting Andy-4.1"
         $Global:GPUVRAM = 0
         Get-WmiObject -Class CIM_VideoController | Select-Object Name,Description,DeviceID,VideoMemoryType | Format-Table -AutoSize
 		Start-Sleep 20
@@ -167,7 +167,7 @@ function CheckGPU {
         Write-Message WARNING "GPU: $($gpu.DriverDesc) with $VRAM GB VRAM"
         $Global:GPUVRAM = 1
 @'
-{ "name": "andy-4.1", "model": { "api": "openai", "model": "andy-4.1", "url": "http://localhost:1234/v1" } , "speak_model": null }
+{ "name": "Andy", "model": { "api": "openai", "model": "andy-4.2", "url": "http://localhost:1234/v1" } , "speak_model": null }
 '@ | Set-Content "$VARCD\mindcraft\mindcraft-ce\Andy.json" -NoNewline
 
 		Write-Message INFO "Writing keys.json template for local LM Studio"
