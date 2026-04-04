@@ -9,8 +9,8 @@ Set-Location ($VARCD = Get-Location); $env:HOMEPATH = $env:USERPROFILE = $VARCD;
 
 # -- Config --------------------------------------------------------------------
 $ModelPublisher = "Mindcraft-CE"
-$ModelRepo      = "Andy-4.1-GGUF"
-$ModelFile      = "andy-4.1.q4_k_m.gguf"
+$ModelRepo      = "Andy-4.2-GGUF"
+$ModelFile      = "andy-4.2.q4_k_m.gguf"
 $HFUrl          = "https://huggingface.co/$ModelPublisher/$ModelRepo/resolve/main/$ModelFile"
 $ApiPort        = 1234
 $ApiHost        = "0.0.0.0"
