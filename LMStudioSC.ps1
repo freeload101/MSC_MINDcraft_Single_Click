@@ -7,6 +7,14 @@ param([bool]$VerboseDebug = $false)
 # -- Portability ---------------------------------------------------------------
 Set-Location ($VARCD = Get-Location); $env:HOMEPATH = $env:USERPROFILE = $VARCD; $env:APPDATA = "$VARCD\AppData\Roaming"; $env:LOCALAPPDATA = "$VARCD\AppData\Local"; $env:TEMP = $env:TMP = "$VARCD\AppData\Local\Temp"; $env:JAVA_HOME = "$VARCD\jdk"; $env:Path = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;$env:SystemRoot\System32\WindowsPowerShell\v1.0\;$VARCD\PortableGit\cmd;$VARCD\jdk\bin;$VARCD\node;$VARCD\python\tools\Scripts;$VARCD\python\tools;python\tools\Lib\site-packages"
 
+# -- Create portable directory structure --
+".lmstudio",".cache\lm-studio\models",".config",".local\share","AppData\Roaming","AppData\Local\Temp" | ForEach-Object {
+    New-Item -ItemType Directory -Path "$VARCD\$_" -Force | Out-Null
+}
+
+# -- Write .lmstudio-home-pointer (at $VARCD which IS ~ now) --
+Set-Content -Path "$VARCD\.lmstudio-home-pointer" -Value "$VARCD\.lmstudio" -NoNewline
+
 # -- Config --------------------------------------------------------------------
 $ModelPublisher = "Mindcraft-CE"
 $ModelRepo      = "Andy-4.2-GGUF"
