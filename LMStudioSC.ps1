@@ -14,6 +14,7 @@ Set-Location ($VARCD = Get-Location); $env:HOMEPATH = $env:USERPROFILE = $VARCD;
 
 # -- Write .lmstudio-home-pointer (at $VARCD which IS ~ now) --
 Set-Content -Path "$VARCD\.lmstudio-home-pointer" -Value "$VARCD\.lmstudio" -NoNewline
+Set-Content -Path "$env:USERPROFILE\.lmstudio-home-pointer" -Value "$VARCD\.lmstudio" -NoNewline
 
 # -- Config --------------------------------------------------------------------
 $ModelPublisher = "Mindcraft-CE"
