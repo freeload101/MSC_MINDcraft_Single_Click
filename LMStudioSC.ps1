@@ -269,6 +269,8 @@ Write-Host "`nStarting API server on $ApiHost`:$ApiPort (max 20 sec)..." -Foregr
 $srvArgs = [System.Collections.Generic.List[string]]::new()
 $srvArgs.Add("server"); $srvArgs.Add("start")
 $srvArgs.Add("--port"); $srvArgs.Add("$ApiPort")
+# think this starts the listen on all ports or Serve on Local Network ?
+$srvArgs.Add("--host"); $srvArgs.Add("0.0.0.0")
 $srvArgs.Add("--cors --verbose")
 if ($VerboseDebug) { $srvArgs.Add("--verbose") }
 
@@ -277,6 +279,7 @@ $srvStartArgs = @{
     ArgumentList = $srvArgs
     PassThru     = $true
     WindowStyle  = "Hidden"
+
 }
 if ($VerboseDebug) {
     $srvStartArgs.RedirectStandardOutput = "$LogDir\lms-server.log"
