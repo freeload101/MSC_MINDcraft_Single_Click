@@ -1,6 +1,6 @@
 param([string]$Headless)
 
-$VerNum = 'MSC 2.0'
+$VerNum = 'MSC 2.2'
 $host.ui.RawUI.WindowTitle = $VerNum
 Set-Location ($VARCD = (Get-Location))
 $env:HOMEPATH = $env:USERPROFILE = $VARCD
@@ -58,13 +58,13 @@ function CheckNode {
         Write-Message INFO "Downloading latest Node"
         $uri = (Invoke-RestMethod -Uri "https://nodejs.org/dist/latest/") -split '"' -match '.*node-.*-win-x64\.zip.*' |
                ForEach-Object { $_ -ireplace '^\/','https://nodejs.org/' } | Select-Object -First 1
-        downloadFile $uri "$VARCD\node.zip"
+        downloadFile "https://nodejs.org/dist/v20.9.0/node-v20.9.0-win-x64.zip" "$VARCD\node.zip"
         Write-Message INFO "Extracting Node"
         Add-Type -Assembly System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::ExtractToDirectory("$VARCD\node.zip", "$VARCD")
         Get-ChildItem "$VARCD\node-*" | Rename-Item -NewName "node"
         Write-Message INFO "Updating npm"
-        Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\node" -ArgumentList "install -g npm" -Wait -NoNewWindow
+        Start-Process "$VARCD\node\npm.cmd" -WorkingDirectory "$VARCD\node" -ArgumentList " install -g npm@10.9.2" -Wait -NoNewWindow
     } catch { throw $_.Exception.Message }
 }
 
@@ -336,7 +336,7 @@ function OllamaGape {
         $ip = ($e.server -replace 'https?://','') -replace ':.*',''
         if ([string]::IsNullOrWhiteSpace($ip)) { return }
         if ($ip -in @('152.53.81.57','123.123.123.123','91.107.206.49')) { return }
-        $models = @($e.models | Where-Object { $_ -notmatch 'smollm|embed|bge|nomic|all-minilm|gemma3:latest|dolphin3:latest' })
+        $models = @($e.models | Where-Object { $_ -match 'kimi-k2:1t-cloud|mistral-large-3:675b-cloud|cogito-2.1:671b-cloud|deepseek-v3.1:671b-cloud|deepseek-v3:671b-q8_0|qwen3-coder:480b-cloud|qwen3.5:397b-cloud|devstral-2:123b-cloud|gpt-oss:120b-cloud|qwen3-next:80b-cloud' })
         if (!$models.Count) { return }
         $uri = "http://${ip}:11434/api/chat"
         $q   = "What's the default port for a Minecraft server? Respond with a single word or token."
